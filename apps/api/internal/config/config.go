@@ -3,8 +3,9 @@ package config
 import "os"
 
 type Config struct {
-	Port string
-	Env  string
+	Port        string
+	Env         string
+	DatabaseURL string
 }
 
 func Load() Config {
@@ -18,5 +19,10 @@ func Load() Config {
 		env = "development"
 	}
 
-	return Config{Port: port, Env: env}
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://postgres:postgres@localhost:5432/repomemory?sslmode=disable"
+	}
+
+	return Config{Port: port, Env: env, DatabaseURL: databaseURL}
 }

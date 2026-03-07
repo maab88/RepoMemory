@@ -2,12 +2,13 @@
 
 RepoMemory is a SaaS MVP that turns GitHub engineering activity into searchable memory entries and weekly digests.
 
-This repository is a monorepo with:
-- `apps/web`: Next.js (App Router, TypeScript, Tailwind)
-- `apps/api`: Go API (chi)
-- `apps/worker`: Go worker (Asynq + Redis)
-- `packages/contracts`: OpenAPI contract and generated TypeScript client placeholder
+## Monorepo Structure
+- `apps/web`: Next.js App Router frontend
+- `apps/api`: Go REST API (chi) + sqlc query layer
+- `apps/worker`: Go background worker (Asynq)
+- `packages/contracts`: OpenAPI source + generated TS client placeholder
 - `infra/migrations`: SQL migrations
+- `docs`: architecture, conventions, testing strategy, and ERD
 
 ## Prerequisites
 - Node.js 20+
@@ -21,10 +22,8 @@ This repository is a monorepo with:
    - `cp apps/api/.env.example apps/api/.env`
    - `cp apps/worker/.env.example apps/worker/.env`
    - `cp apps/web/.env.example apps/web/.env.local`
-2. Install frontend deps:
-   - `pnpm install`
-3. Start infrastructure:
-   - `make up`
+2. Install frontend deps: `corepack pnpm install`
+3. Start infrastructure: `make up`
 4. Run apps in separate terminals:
    - `make dev-api`
    - `make dev-worker`
@@ -36,15 +35,29 @@ This repository is a monorepo with:
 - Postgres: localhost:5432
 - Redis: localhost:6379
 
-## Commands
-- `make up`: start postgres + redis
-- `make down`: stop containers
-- `make logs`: tail container logs
-- `make test`: run API and web tests
-- `make lint`: run basic lint checks
-- `make dev-web`: run Next.js app
-- `make dev-api`: run API server
-- `make dev-worker`: run worker bootstrap
+## Quality Commands
+- `make test`: run all tests
+- `make test-web`: run web tests
+- `make test-api`: run API tests
+- `make test-worker`: run worker tests
+- `make lint`: run Go + web lint
+- `make format`: run Go + web formatters
+- `make ci`: run lint + test
+
+## Data Layer Commands
+- Apply schema migration locally:
+  - `Get-Content infra/migrations/0001_v1_schema.up.sql | docker compose --env-file .env exec -T postgres psql -U postgres -d repomemory`
+- Generate sqlc code:
+  - `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.28.0 generate -f apps/api/sqlc.yaml`
+- Run DB integration tests:
+  - `cd apps/api && go test ./...`
+  - Optional override: set `TEST_DATABASE_URL`
+
+## Docs
+- `docs/architecture.md`
+- `docs/conventions.md`
+- `docs/testing-strategy.md`
+- `docs/erd.md`
 
 ## Environment Variables
 ### Root (`.env`)
@@ -65,7 +78,6 @@ This repository is a monorepo with:
 ### Web (`apps/web/.env.local`)
 - `NEXT_PUBLIC_API_BASE_URL`: browser-facing API base URL
 
-## Notes
-- SQL migrations are managed via files in `infra/migrations`.
-- The OpenAPI contract is in `packages/contracts/openapi/openapi.yaml`.
-- `packages/contracts/generated/client.ts` is a safe placeholder until generation is added.
+### API tests
+- `TEST_DATABASE_URL` (optional): Postgres connection string for integration tests.
+  - Default: `postgres://postgres:postgres@localhost:5432/repomemory?sslmode=disable`
