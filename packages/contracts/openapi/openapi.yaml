@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: RepoMemory API
+  version: 0.1.0
+  description: API contract for RepoMemory MVP.
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      responses:
+        '200':
+          description: Healthy API response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: api
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-03-06T15:04:05Z

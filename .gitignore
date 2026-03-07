@@ -1,0 +1,9 @@
+node_modules
+.pnpm-store
+.next
+coverage
+dist
+*.log
+.env
+.env.local
+.env.*.local
