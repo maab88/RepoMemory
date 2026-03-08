@@ -17,6 +17,7 @@ import (
 	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
 	servicememory "github.com/maab88/repomemory/apps/api/internal/services/memory"
 	servicerepositories "github.com/maab88/repomemory/apps/api/internal/services/repositories"
+	servicesearch "github.com/maab88/repomemory/apps/api/internal/services/search"
 )
 
 type OrganizationService interface {
@@ -31,6 +32,7 @@ type V1Handler struct {
 	jobService        JobService
 	repositoryService RepositoryService
 	memoryService     MemoryService
+	searchService     SearchService
 }
 
 func NewV1Handler(
@@ -39,6 +41,7 @@ func NewV1Handler(
 	jobService JobService,
 	repositoryService RepositoryService,
 	memoryService MemoryService,
+	searchService SearchService,
 ) *V1Handler {
 	return &V1Handler{
 		orgService:        orgService,
@@ -46,6 +49,7 @@ func NewV1Handler(
 		jobService:        jobService,
 		repositoryService: repositoryService,
 		memoryService:     memoryService,
+		searchService:     searchService,
 	}
 }
 
@@ -71,6 +75,10 @@ type RepositoryService interface {
 type MemoryService interface {
 	ListRepositoryMemory(ctx context.Context, userID, repositoryID uuid.UUID) ([]servicememory.MemoryEntry, error)
 	GetRepositoryMemoryEntry(ctx context.Context, userID, repositoryID, memoryID uuid.UUID) (servicememory.MemoryEntry, error)
+}
+
+type SearchService interface {
+	SearchMemory(ctx context.Context, input servicesearch.MemorySearchInput) (servicesearch.MemorySearchResponse, error)
 }
 
 type meResponse struct {

@@ -15,6 +15,7 @@ import (
 	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
 	servicememory "github.com/maab88/repomemory/apps/api/internal/services/memory"
 	servicerepositories "github.com/maab88/repomemory/apps/api/internal/services/repositories"
+	servicesearch "github.com/maab88/repomemory/apps/api/internal/services/search"
 )
 
 type noopOrgService struct{}
@@ -73,6 +74,12 @@ func (n *noopMemoryService) GetRepositoryMemoryEntry(context.Context, uuid.UUID,
 	return servicememory.MemoryEntry{}, servicememory.ErrMemoryEntryNotFound
 }
 
+type noopSearchService struct{}
+
+func (n *noopSearchService) SearchMemory(context.Context, servicesearch.MemorySearchInput) (servicesearch.MemorySearchResponse, error) {
+	return servicesearch.MemorySearchResponse{}, nil
+}
+
 type fakeJobQueryService struct {
 	job servicejobs.Job
 	err error
@@ -95,7 +102,7 @@ func TestGetJobReturnsRecord(t *testing.T) {
 			UpdatedAt: time.Now().UTC(),
 		},
 	}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, jobSvc, &noopRepositoryService{}, &noopMemoryService{})
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, jobSvc, &noopRepositoryService{}, &noopMemoryService{}, &noopSearchService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -114,7 +121,7 @@ func TestGetJobReturnsRecord(t *testing.T) {
 }
 
 func TestGetJobUnauthorizedRejected(t *testing.T) {
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, &noopRepositoryService{}, &noopMemoryService{})
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, &noopRepositoryService{}, &noopMemoryService{}, &noopSearchService{})
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(auth.RequireMockAuth(fakeResolver{}))
@@ -131,7 +138,7 @@ func TestGetJobUnauthorizedRejected(t *testing.T) {
 }
 
 func TestGetJobForbidden(t *testing.T) {
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{err: servicejobs.ErrJobForbidden}, &noopRepositoryService{}, &noopMemoryService{})
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{err: servicejobs.ErrJobForbidden}, &noopRepositoryService{}, &noopMemoryService{}, &noopSearchService{})
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(auth.RequireMockAuth(fakeResolver{}))

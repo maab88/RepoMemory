@@ -1075,6 +1075,95 @@ func (q *Queries) ListRepositorySummariesForUser(ctx context.Context, userID uui
 	return items, nil
 }
 
+const searchMemoryEntries = `-- name: SearchMemoryEntries :many
+SELECT
+  me.id,
+  me.repository_id,
+  r.name AS repository_name,
+  me.type,
+  me.title,
+  me.summary,
+  me.source_url,
+  me.created_at,
+  COUNT(*) OVER()::INT AS total_count
+FROM memory_entries me
+INNER JOIN repositories r ON r.id = me.repository_id
+WHERE me.organization_id = $1
+  AND (
+    $2::uuid IS NULL
+    OR me.repository_id = $2::uuid
+  )
+  AND (
+    me.title ILIKE ('%' || $3 || '%')
+    OR me.summary ILIKE ('%' || $3 || '%')
+  )
+ORDER BY
+  CASE
+    WHEN me.title ILIKE ('%' || $3 || '%') THEN 0
+    ELSE 1
+  END ASC,
+  me.created_at DESC,
+  me.id DESC
+LIMIT $5
+OFFSET $4
+`
+
+type SearchMemoryEntriesParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	RepositoryID   *uuid.UUID  `json:"repository_id"`
+	QueryText      pgtype.Text `json:"query_text"`
+	OffsetCount    int32       `json:"offset_count"`
+	LimitCount     int32       `json:"limit_count"`
+}
+
+type SearchMemoryEntriesRow struct {
+	ID             uuid.UUID          `json:"id"`
+	RepositoryID   uuid.UUID          `json:"repository_id"`
+	RepositoryName string             `json:"repository_name"`
+	Type           string             `json:"type"`
+	Title          string             `json:"title"`
+	Summary        string             `json:"summary"`
+	SourceUrl      pgtype.Text        `json:"source_url"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TotalCount     int32              `json:"total_count"`
+}
+
+func (q *Queries) SearchMemoryEntries(ctx context.Context, arg SearchMemoryEntriesParams) ([]SearchMemoryEntriesRow, error) {
+	rows, err := q.db.Query(ctx, searchMemoryEntries,
+		arg.OrganizationID,
+		arg.RepositoryID,
+		arg.QueryText,
+		arg.OffsetCount,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchMemoryEntriesRow{}
+	for rows.Next() {
+		var i SearchMemoryEntriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RepositoryID,
+			&i.RepositoryName,
+			&i.Type,
+			&i.Title,
+			&i.Summary,
+			&i.SourceUrl,
+			&i.CreatedAt,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateJobStatus = `-- name: UpdateJobStatus :one
 UPDATE jobs
 SET

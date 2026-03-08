@@ -27,6 +27,7 @@ func New(deps Dependencies) http.Handler {
 		r.Get("/github/repositories", deps.V1Handler.ListGitHubRepositories)
 		r.Post("/github/repositories/import", deps.V1Handler.ImportGitHubRepositories)
 		r.Get("/jobs/{jobId}", deps.V1Handler.GetJob)
+		r.Get("/memory/search", deps.V1Handler.SearchMemory)
 		r.Get("/organizations/{orgId}/repositories", deps.V1Handler.ListOrganizationRepositories)
 		r.Get("/repositories", deps.V1Handler.ListRepositories)
 		r.Get("/repositories/{repoId}", deps.V1Handler.GetRepository)

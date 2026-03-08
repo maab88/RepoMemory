@@ -25,6 +25,7 @@ import (
 	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
 	servicememory "github.com/maab88/repomemory/apps/api/internal/services/memory"
 	servicerepositories "github.com/maab88/repomemory/apps/api/internal/services/repositories"
+	servicesearch "github.com/maab88/repomemory/apps/api/internal/services/search"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -67,6 +68,7 @@ func main() {
 	syncStateRepository := repositories.NewRepositorySyncStateRepository(queries)
 	memoryEntryRepository := repositories.NewMemoryEntryRepository(queries)
 	memoryEntrySourceRepository := repositories.NewMemoryEntrySourceRepository(queries)
+	memorySearchRepository := repositories.NewMemorySearchRepository(queries)
 
 	redisAddr := cfg.RedisAddr
 	if !strings.Contains(redisAddr, "://") {
@@ -83,7 +85,8 @@ func main() {
 	jobService := servicejobs.NewService(jobRepository, queries, queries, enqueuer)
 	repositoryService := servicerepositories.NewService(repositoryRepository, syncStateRepository, queries, jobService)
 	memoryService := servicememory.NewQueryService(repositoryRepository, memoryEntryRepository, memoryEntrySourceRepository, queries)
-	v1Handler := handlers.NewV1Handler(orgService, githubService, jobService, repositoryService, memoryService)
+	searchService := servicesearch.NewService(queries, repositoryRepository, memorySearchRepository)
+	v1Handler := handlers.NewV1Handler(orgService, githubService, jobService, repositoryService, memoryService, searchService)
 
 	h := router.New(router.Dependencies{
 		AuthMiddleware: auth.RequireMockAuth(userResolver),

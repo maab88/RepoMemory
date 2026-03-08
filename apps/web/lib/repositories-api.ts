@@ -1,8 +1,10 @@
 import {
   JobsService,
   RepositoriesService,
+  SearchService,
   type GenerateMemoryData,
   type JobResponseData,
+  type MemorySearchData,
   type MemoryEntryDetailData,
   type MemoryEntryListData,
   type RepositoryListData,
@@ -43,4 +45,16 @@ export function getRepositoryMemoryDetail(repoId: string, memoryId: string): Pro
 
 export function generateRepositoryMemory(repoId: string): Promise<GenerateMemoryData> {
   return unwrapData(RepositoriesService.generateRepositoryMemory(repoId));
+}
+
+export function searchMemory(params: {
+  q?: string;
+  organizationId: string;
+  repositoryId?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<MemorySearchData> {
+  return unwrapData(
+    SearchService.searchMemory(params.organizationId, params.q, params.repositoryId, params.page, params.pageSize)
+  );
 }

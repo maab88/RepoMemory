@@ -373,6 +373,38 @@ LEFT JOIN issues i
 WHERE mes.memory_entry_id = $1
 ORDER BY mes.created_at ASC;
 
+-- name: SearchMemoryEntries :many
+SELECT
+  me.id,
+  me.repository_id,
+  r.name AS repository_name,
+  me.type,
+  me.title,
+  me.summary,
+  me.source_url,
+  me.created_at,
+  COUNT(*) OVER()::INT AS total_count
+FROM memory_entries me
+INNER JOIN repositories r ON r.id = me.repository_id
+WHERE me.organization_id = sqlc.arg(organization_id)
+  AND (
+    sqlc.narg(repository_id)::uuid IS NULL
+    OR me.repository_id = sqlc.narg(repository_id)::uuid
+  )
+  AND (
+    me.title ILIKE ('%' || sqlc.arg(query_text) || '%')
+    OR me.summary ILIKE ('%' || sqlc.arg(query_text) || '%')
+  )
+ORDER BY
+  CASE
+    WHEN me.title ILIKE ('%' || sqlc.arg(query_text) || '%') THEN 0
+    ELSE 1
+  END ASC,
+  me.created_at DESC,
+  me.id DESC
+LIMIT sqlc.arg(limit_count)
+OFFSET sqlc.arg(offset_count);
+
 -- name: InsertDigest :one
 INSERT INTO digests (
   organization_id,

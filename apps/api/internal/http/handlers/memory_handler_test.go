@@ -45,7 +45,7 @@ func TestListRepositoryMemoryAuthorized(t *testing.T) {
 			},
 		},
 	}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, &noopRepositoryService{}, memSvc)
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, &noopRepositoryService{}, memSvc, &noopSearchService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -66,7 +66,7 @@ func TestListRepositoryMemoryAuthorized(t *testing.T) {
 func TestListRepositoryMemoryUnauthorizedForbidden(t *testing.T) {
 	repoID := uuid.New()
 	memSvc := &fakeMemoryQueryService{listErr: servicememory.ErrRepositoryForbidden}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, &noopRepositoryService{}, memSvc)
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, &noopRepositoryService{}, memSvc, &noopSearchService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -88,7 +88,7 @@ func TestGetRepositoryMemoryDetailRespectsAuthz(t *testing.T) {
 	repoID := uuid.New()
 	memID := uuid.New()
 	memSvc := &fakeMemoryQueryService{getErr: servicememory.ErrRepositoryForbidden}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, &noopRepositoryService{}, memSvc)
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, &noopRepositoryService{}, memSvc, &noopSearchService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {

@@ -12,6 +12,7 @@ tags:
   - name: GitHub
   - name: Repositories
   - name: Jobs
+  - name: Search
 paths:
   /health:
     get:
@@ -265,6 +266,67 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JobResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/memory/search:
+    get:
+      tags:
+        - Search
+      operationId: searchMemory
+      summary: Search memory entries by title and summary
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Search query
+          schema:
+            type: string
+        - name: organizationId
+          in: query
+          required: true
+          description: Organization identifier
+          schema:
+            type: string
+            format: uuid
+        - name: repositoryId
+          in: query
+          required: false
+          description: Optional repository identifier within the organization
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Search results from persisted memory entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySearchResponse"
         "400":
           $ref: "#/components/responses/BadRequestError"
         "401":
@@ -1056,6 +1118,58 @@ components:
           type: string
           enum:
             - queued
+    MemorySearchResult:
+      type: object
+      required:
+        - id
+        - repositoryId
+        - repositoryName
+        - type
+        - title
+        - summarySnippet
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        repositoryId:
+          type: string
+          format: uuid
+        repositoryName:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        summarySnippet:
+          type: string
+        sourceUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+    MemorySearchData:
+      type: object
+      required:
+        - query
+        - page
+        - pageSize
+        - total
+        - results
+      properties:
+        query:
+          type: string
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemorySearchResult"
     MeResponse:
       type: object
       required:
@@ -1163,3 +1277,10 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/GenerateMemoryData"
+    MemorySearchResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/MemorySearchData"
