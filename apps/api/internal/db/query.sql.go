@@ -73,6 +73,33 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 	return i, err
 }
 
+const getJobByID = `-- name: GetJobByID :one
+SELECT id, organization_id, repository_id, job_type, status, queue_name, attempts, last_error, payload, started_at, finished_at, created_at, updated_at
+FROM jobs
+WHERE id = $1
+`
+
+func (q *Queries) GetJobByID(ctx context.Context, id uuid.UUID) (Job, error) {
+	row := q.db.QueryRow(ctx, getJobByID, id)
+	var i Job
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.RepositoryID,
+		&i.JobType,
+		&i.Status,
+		&i.QueueName,
+		&i.Attempts,
+		&i.LastError,
+		&i.Payload,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getLatestGithubAccountForUser = `-- name: GetLatestGithubAccountForUser :one
 SELECT id, user_id, github_user_id, github_login, access_token_encrypted, token_scope, connected_at, created_at, updated_at
 FROM github_accounts
@@ -154,6 +181,57 @@ func (q *Queries) GetOrganizationForUser(ctx context.Context, arg GetOrganizatio
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Role,
+	)
+	return i, err
+}
+
+const getRepositoryByID = `-- name: GetRepositoryByID :one
+SELECT id, organization_id, github_repo_id, owner_login, name, full_name, private, default_branch, html_url, description, is_active, imported_at, created_at, updated_at
+FROM repositories
+WHERE id = $1
+`
+
+func (q *Queries) GetRepositoryByID(ctx context.Context, id uuid.UUID) (Repository, error) {
+	row := q.db.QueryRow(ctx, getRepositoryByID, id)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.GithubRepoID,
+		&i.OwnerLogin,
+		&i.Name,
+		&i.FullName,
+		&i.Private,
+		&i.DefaultBranch,
+		&i.HtmlUrl,
+		&i.Description,
+		&i.IsActive,
+		&i.ImportedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRepositorySyncStateByRepositoryID = `-- name: GetRepositorySyncStateByRepositoryID :one
+SELECT id, repository_id, last_pr_sync_at, last_issue_sync_at, last_successful_sync_at, last_sync_status, last_sync_error, created_at, updated_at
+FROM repository_sync_states
+WHERE repository_id = $1
+`
+
+func (q *Queries) GetRepositorySyncStateByRepositoryID(ctx context.Context, repositoryID uuid.UUID) (RepositorySyncState, error) {
+	row := q.db.QueryRow(ctx, getRepositorySyncStateByRepositoryID, repositoryID)
+	var i RepositorySyncState
+	err := row.Scan(
+		&i.ID,
+		&i.RepositoryID,
+		&i.LastPrSyncAt,
+		&i.LastIssueSyncAt,
+		&i.LastSuccessfulSyncAt,
+		&i.LastSyncStatus,
+		&i.LastSyncError,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -675,6 +753,98 @@ func (q *Queries) ListRepositoriesForOrganization(ctx context.Context, organizat
 			&i.ImportedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRepositorySummariesForOrganization = `-- name: ListRepositorySummariesForOrganization :many
+SELECT
+  r.id,
+  r.organization_id,
+  r.github_repo_id,
+  r.owner_login,
+  r.name,
+  r.full_name,
+  r.private,
+  r.default_branch,
+  r.html_url,
+  r.description,
+  r.imported_at,
+  rss.last_sync_status,
+  rss.last_successful_sync_at AS last_sync_time,
+  (
+    SELECT COUNT(*)
+    FROM pull_requests pr
+    WHERE pr.repository_id = r.id
+  )::INT AS pull_request_count,
+  (
+    SELECT COUNT(*)
+    FROM issues i
+    WHERE i.repository_id = r.id
+  )::INT AS issue_count,
+  (
+    SELECT COUNT(*)
+    FROM memory_entries me
+    WHERE me.repository_id = r.id
+  )::INT AS memory_entry_count
+FROM repositories r
+LEFT JOIN repository_sync_states rss ON rss.repository_id = r.id
+WHERE r.organization_id = $1
+ORDER BY r.imported_at DESC, r.created_at DESC
+`
+
+type ListRepositorySummariesForOrganizationRow struct {
+	ID               uuid.UUID          `json:"id"`
+	OrganizationID   uuid.UUID          `json:"organization_id"`
+	GithubRepoID     int64              `json:"github_repo_id"`
+	OwnerLogin       string             `json:"owner_login"`
+	Name             string             `json:"name"`
+	FullName         string             `json:"full_name"`
+	Private          bool               `json:"private"`
+	DefaultBranch    string             `json:"default_branch"`
+	HtmlUrl          string             `json:"html_url"`
+	Description      pgtype.Text        `json:"description"`
+	ImportedAt       pgtype.Timestamptz `json:"imported_at"`
+	LastSyncStatus   pgtype.Text        `json:"last_sync_status"`
+	LastSyncTime     pgtype.Timestamptz `json:"last_sync_time"`
+	PullRequestCount int32              `json:"pull_request_count"`
+	IssueCount       int32              `json:"issue_count"`
+	MemoryEntryCount int32              `json:"memory_entry_count"`
+}
+
+func (q *Queries) ListRepositorySummariesForOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListRepositorySummariesForOrganizationRow, error) {
+	rows, err := q.db.Query(ctx, listRepositorySummariesForOrganization, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRepositorySummariesForOrganizationRow{}
+	for rows.Next() {
+		var i ListRepositorySummariesForOrganizationRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.GithubRepoID,
+			&i.OwnerLogin,
+			&i.Name,
+			&i.FullName,
+			&i.Private,
+			&i.DefaultBranch,
+			&i.HtmlUrl,
+			&i.Description,
+			&i.ImportedAt,
+			&i.LastSyncStatus,
+			&i.LastSyncTime,
+			&i.PullRequestCount,
+			&i.IssueCount,
+			&i.MemoryEntryCount,
 		); err != nil {
 			return nil, err
 		}

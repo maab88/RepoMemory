@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/maab88/repomemory/apps/api/internal/auth"
@@ -16,8 +18,12 @@ import (
 	gh "github.com/maab88/repomemory/apps/api/internal/github"
 	"github.com/maab88/repomemory/apps/api/internal/http/handlers"
 	"github.com/maab88/repomemory/apps/api/internal/http/router"
+	jobdefs "github.com/maab88/repomemory/apps/api/internal/jobs"
 	"github.com/maab88/repomemory/apps/api/internal/org"
+	"github.com/maab88/repomemory/apps/api/internal/repositories"
 	"github.com/maab88/repomemory/apps/api/internal/server"
+	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
+	servicerepositories "github.com/maab88/repomemory/apps/api/internal/services/repositories"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -55,7 +61,25 @@ func main() {
 	}, githubState, githubClient, githubStore, gh.PlaintextTokenSealer{})
 	githubRepositories := gh.NewRepositoryService(githubClient, githubStore)
 	githubService := gh.NewService(githubOAuth, githubRepositories)
-	v1Handler := handlers.NewV1Handler(orgService, githubService)
+	jobRepository := repositories.NewJobRepository(queries)
+	repositoryRepository := repositories.NewRepositoryRepository(queries)
+	syncStateRepository := repositories.NewRepositorySyncStateRepository(queries)
+
+	redisAddr := cfg.RedisAddr
+	if !strings.Contains(redisAddr, "://") {
+		redisAddr = "redis://" + redisAddr
+	}
+	redisOpt, err := asynq.ParseRedisURI(redisAddr)
+	if err != nil {
+		log.Fatal().Err(err).Msg("invalid redis address")
+	}
+	asynqClient := asynq.NewClient(redisOpt)
+	defer asynqClient.Close()
+
+	enqueuer := jobdefs.NewEnqueuer(jobRepository, asynqClient)
+	jobService := servicejobs.NewService(jobRepository, queries, queries, enqueuer)
+	repositoryService := servicerepositories.NewService(repositoryRepository, syncStateRepository, queries, jobService)
+	v1Handler := handlers.NewV1Handler(orgService, githubService, jobService, repositoryService)
 
 	h := router.New(router.Dependencies{
 		AuthMiddleware: auth.RequireMockAuth(userResolver),

@@ -1,0 +1,77 @@
+import React from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import RepositoryDetailPage from "@/app/repositories/[repoId]/page";
+
+const useRepositoryDetailMock = vi.fn();
+const mutateAsyncMock = vi.fn();
+const useJobStatusMock = vi.fn();
+const useParamsMock = vi.fn();
+
+vi.mock("@/lib/hooks/use-repository-detail", () => ({
+  useRepositoryDetail: (repoId: string) => useRepositoryDetailMock(repoId),
+}));
+
+vi.mock("@/lib/hooks/use-trigger-sync", () => ({
+  useTriggerSync: () => ({
+    isPending: false,
+    mutateAsync: (repoId: string) => mutateAsyncMock(repoId),
+  }),
+}));
+
+vi.mock("@/lib/hooks/use-job-status", () => ({
+  useJobStatus: (jobId: string | null) => useJobStatusMock(jobId),
+}));
+
+vi.mock("next/navigation", () => ({
+  useParams: () => useParamsMock(),
+}));
+
+describe("RepositoryDetailPage", () => {
+  beforeEach(() => {
+    useParamsMock.mockReturnValue({ repoId: "repo-1" });
+    useRepositoryDetailMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        repository: {
+          id: "repo-1",
+          organizationId: "org-1",
+          githubRepoId: "123",
+          ownerLogin: "octocat",
+          name: "repo-memory",
+          fullName: "octocat/repo-memory",
+          private: true,
+          defaultBranch: "main",
+          htmlUrl: "https://github.com/octocat/repo-memory",
+          description: "Internal tools",
+          importedAt: "2026-03-07T12:00:00Z",
+          lastSyncStatus: "queued",
+          lastSyncTime: null,
+          pullRequestCount: 0,
+          issueCount: 0,
+          memoryEntryCount: 0,
+        },
+      },
+    });
+    useJobStatusMock.mockReturnValue({
+      data: null,
+    });
+    mutateAsyncMock.mockResolvedValue({ jobId: "job-1", status: "queued" });
+  });
+
+  it("renders persisted repository details", () => {
+    render(<RepositoryDetailPage />);
+    expect(screen.getByText("octocat/repo-memory")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Trigger initial sync" })).toBeInTheDocument();
+  });
+
+  it("triggers sync and requests job status", async () => {
+    render(<RepositoryDetailPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Trigger initial sync" }));
+
+    await waitFor(() => {
+      expect(mutateAsyncMock).toHaveBeenCalledWith("repo-1");
+    });
+  });
+});

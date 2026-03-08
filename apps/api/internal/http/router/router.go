@@ -26,6 +26,10 @@ func New(deps Dependencies) http.Handler {
 		r.Get("/github/callback", deps.V1Handler.GitHubCallback)
 		r.Get("/github/repositories", deps.V1Handler.ListGitHubRepositories)
 		r.Post("/github/repositories/import", deps.V1Handler.ImportGitHubRepositories)
+		r.Get("/jobs/{jobId}", deps.V1Handler.GetJob)
+		r.Get("/organizations/{orgId}/repositories", deps.V1Handler.ListOrganizationRepositories)
+		r.Get("/repositories/{repoId}", deps.V1Handler.GetRepository)
+		r.Post("/repositories/{repoId}/sync", deps.V1Handler.TriggerRepositorySync)
 	})
 
 	return r

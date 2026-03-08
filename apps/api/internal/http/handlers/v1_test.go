@@ -13,6 +13,8 @@ import (
 	"github.com/maab88/repomemory/apps/api/internal/auth"
 	gh "github.com/maab88/repomemory/apps/api/internal/github"
 	"github.com/maab88/repomemory/apps/api/internal/org"
+	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
+	servicerepositories "github.com/maab88/repomemory/apps/api/internal/services/repositories"
 )
 
 type fakeResolver struct{}
@@ -40,6 +42,36 @@ type fakeGitHubOAuthService struct {
 	listErr      error
 	importErr    error
 	callbacks    int
+}
+
+type fakeJobService struct {
+	job servicejobs.Job
+	err error
+}
+
+func (f *fakeJobService) GetJob(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
+	return f.job, f.err
+}
+
+type fakeRepositoryService struct {
+	repositories []servicerepositories.Repository
+	repository   servicerepositories.Repository
+	job          servicejobs.Job
+	listErr      error
+	getErr       error
+	syncErr      error
+}
+
+func (f *fakeRepositoryService) ListOrganizationRepositories(_ context.Context, _, _ uuid.UUID) ([]servicerepositories.Repository, error) {
+	return f.repositories, f.listErr
+}
+
+func (f *fakeRepositoryService) GetRepository(_ context.Context, _, _ uuid.UUID) (servicerepositories.Repository, error) {
+	return f.repository, f.getErr
+}
+
+func (f *fakeRepositoryService) TriggerInitialSync(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
+	return f.job, f.syncErr
 }
 
 func (f *fakeGitHubOAuthService) StartConnect(_ context.Context, _ gh.OAuthStartInput) (string, error) {
@@ -76,7 +108,7 @@ func newTestRouter(orgSvc OrganizationService) http.Handler {
 }
 
 func newTestRouterWithGitHub(orgSvc OrganizationService, githubSvc GitHubService) http.Handler {
-	h := NewV1Handler(orgSvc, githubSvc)
+	h := NewV1Handler(orgSvc, githubSvc, &fakeJobService{}, &fakeRepositoryService{})
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(auth.RequireMockAuth(fakeResolver{}))

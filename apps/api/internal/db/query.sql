@@ -79,6 +79,51 @@ FROM repositories
 WHERE organization_id = $1
 ORDER BY created_at DESC;
 
+-- name: GetRepositoryByID :one
+SELECT *
+FROM repositories
+WHERE id = $1;
+
+-- name: GetRepositorySyncStateByRepositoryID :one
+SELECT *
+FROM repository_sync_states
+WHERE repository_id = $1;
+
+-- name: ListRepositorySummariesForOrganization :many
+SELECT
+  r.id,
+  r.organization_id,
+  r.github_repo_id,
+  r.owner_login,
+  r.name,
+  r.full_name,
+  r.private,
+  r.default_branch,
+  r.html_url,
+  r.description,
+  r.imported_at,
+  rss.last_sync_status,
+  rss.last_successful_sync_at AS last_sync_time,
+  (
+    SELECT COUNT(*)
+    FROM pull_requests pr
+    WHERE pr.repository_id = r.id
+  )::INT AS pull_request_count,
+  (
+    SELECT COUNT(*)
+    FROM issues i
+    WHERE i.repository_id = r.id
+  )::INT AS issue_count,
+  (
+    SELECT COUNT(*)
+    FROM memory_entries me
+    WHERE me.repository_id = r.id
+  )::INT AS memory_entry_count
+FROM repositories r
+LEFT JOIN repository_sync_states rss ON rss.repository_id = r.id
+WHERE r.organization_id = $1
+ORDER BY r.imported_at DESC, r.created_at DESC;
+
 -- name: UpsertRepositorySyncState :one
 INSERT INTO repository_sync_states (
   repository_id,
@@ -318,6 +363,11 @@ INSERT INTO jobs (
   NOW()
 )
 RETURNING *;
+
+-- name: GetJobByID :one
+SELECT *
+FROM jobs
+WHERE id = $1;
 
 -- name: UpdateJobStatus :one
 UPDATE jobs

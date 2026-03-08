@@ -9,6 +9,7 @@ type Config struct {
 	Port               string
 	Env                string
 	DatabaseURL        string
+	RedisAddr          string
 	GitHubClientID     string
 	GitHubClientSecret string
 	GitHubAuthorizeURL string
@@ -34,6 +35,11 @@ func Load() Config {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		databaseURL = "postgres://postgres:postgres@localhost:5432/repomemory?sslmode=disable"
+	}
+
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "127.0.0.1:6379"
 	}
 
 	gitHubAuthorizeURL := os.Getenv("GITHUB_AUTHORIZE_URL")
@@ -73,6 +79,7 @@ func Load() Config {
 		Port:               port,
 		Env:                env,
 		DatabaseURL:        databaseURL,
+		RedisAddr:          redisAddr,
 		GitHubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
 		GitHubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 		GitHubAuthorizeURL: gitHubAuthorizeURL,

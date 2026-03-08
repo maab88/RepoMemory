@@ -14,6 +14,8 @@ import (
 	gh "github.com/maab88/repomemory/apps/api/internal/github"
 	"github.com/maab88/repomemory/apps/api/internal/http/response"
 	"github.com/maab88/repomemory/apps/api/internal/org"
+	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
+	servicerepositories "github.com/maab88/repomemory/apps/api/internal/services/repositories"
 )
 
 type OrganizationService interface {
@@ -23,12 +25,24 @@ type OrganizationService interface {
 }
 
 type V1Handler struct {
-	orgService    OrganizationService
-	githubService GitHubService
+	orgService        OrganizationService
+	githubService     GitHubService
+	jobService        JobService
+	repositoryService RepositoryService
 }
 
-func NewV1Handler(orgService OrganizationService, githubService GitHubService) *V1Handler {
-	return &V1Handler{orgService: orgService, githubService: githubService}
+func NewV1Handler(
+	orgService OrganizationService,
+	githubService GitHubService,
+	jobService JobService,
+	repositoryService RepositoryService,
+) *V1Handler {
+	return &V1Handler{
+		orgService:        orgService,
+		githubService:     githubService,
+		jobService:        jobService,
+		repositoryService: repositoryService,
+	}
 }
 
 type GitHubService interface {
@@ -36,6 +50,16 @@ type GitHubService interface {
 	HandleCallback(ctx context.Context, input gh.OAuthCallbackInput) (gh.GitHubConnectionSummary, error)
 	ListGitHubRepositories(ctx context.Context, userID uuid.UUID) ([]gh.GitHubRepository, error)
 	ImportRepositories(ctx context.Context, input gh.ImportRepositoriesInput) ([]gh.ImportedRepository, error)
+}
+
+type JobService interface {
+	GetJob(ctx context.Context, userID, jobID uuid.UUID) (servicejobs.Job, error)
+}
+
+type RepositoryService interface {
+	ListOrganizationRepositories(ctx context.Context, userID, organizationID uuid.UUID) ([]servicerepositories.Repository, error)
+	GetRepository(ctx context.Context, userID, repositoryID uuid.UUID) (servicerepositories.Repository, error)
+	TriggerInitialSync(ctx context.Context, userID, repositoryID uuid.UUID) (servicejobs.Job, error)
 }
 
 type meResponse struct {

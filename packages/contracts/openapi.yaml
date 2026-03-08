@@ -10,6 +10,8 @@ tags:
   - name: Identity
   - name: Organizations
   - name: GitHub
+  - name: Repositories
+  - name: Jobs
 paths:
   /health:
     get:
@@ -238,6 +240,136 @@ paths:
           $ref: "#/components/responses/UnauthorizedError"
         "403":
           $ref: "#/components/responses/ForbiddenError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/jobs/{jobId}:
+    get:
+      tags:
+        - Jobs
+      operationId: getJob
+      summary: Get one background job by id
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: Job identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/organizations/{orgId}/repositories:
+    get:
+      tags:
+        - Repositories
+      operationId: listOrganizationRepositories
+      summary: List imported repositories for an organization
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Imported repositories for organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationRepositoriesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/repositories/{repoId}:
+    get:
+      tags:
+        - Repositories
+      operationId: getRepositoryDetail
+      summary: Get one imported repository detail
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: repoId
+          in: path
+          required: true
+          description: Repository identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Repository detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryDetailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/repositories/{repoId}/sync:
+    post:
+      tags:
+        - Repositories
+      operationId: triggerRepositorySync
+      summary: Enqueue repository initial sync
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: repoId
+          in: path
+          required: true
+          description: Repository identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Sync job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerSyncResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
         "500":
           $ref: "#/components/responses/InternalError"
 components:
@@ -525,6 +657,166 @@ components:
           enum: [true]
         account:
           $ref: "#/components/schemas/GitHubConnectionSummary"
+    JobPayload:
+      type: object
+      required:
+        - repositoryId
+        - organizationId
+        - triggeredByUserId
+      properties:
+        repositoryId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        triggeredByUserId:
+          type: string
+          format: uuid
+    Job:
+      type: object
+      required:
+        - id
+        - jobType
+        - status
+        - queueName
+        - attempts
+        - payload
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        jobType:
+          type: string
+          enum:
+            - repo.initial_sync
+            - repo.incremental_sync
+            - repo.generate_memory
+            - repo.generate_digest
+            - repo.recalculate_hotspots
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - succeeded
+            - failed
+        queueName:
+          type: string
+        attempts:
+          type: integer
+        lastError:
+          type: string
+          nullable: true
+        payload:
+          $ref: "#/components/schemas/JobPayload"
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    RepositorySummary:
+      type: object
+      required:
+        - id
+        - organizationId
+        - githubRepoId
+        - ownerLogin
+        - name
+        - fullName
+        - private
+        - defaultBranch
+        - htmlUrl
+        - importedAt
+        - pullRequestCount
+        - issueCount
+        - memoryEntryCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        githubRepoId:
+          type: string
+        ownerLogin:
+          type: string
+        name:
+          type: string
+        fullName:
+          type: string
+        private:
+          type: boolean
+        defaultBranch:
+          type: string
+        htmlUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+        importedAt:
+          type: string
+          format: date-time
+        lastSyncStatus:
+          type: string
+        lastSyncTime:
+          type: string
+          format: date-time
+          nullable: true
+        pullRequestCount:
+          type: integer
+        issueCount:
+          type: integer
+        memoryEntryCount:
+          type: integer
+    JobResponseData:
+      type: object
+      required:
+        - job
+      properties:
+        job:
+          $ref: "#/components/schemas/Job"
+    OrganizationRepositoriesData:
+      type: object
+      required:
+        - repositories
+      properties:
+        repositories:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepositorySummary"
+    RepositoryDetailData:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          $ref: "#/components/schemas/RepositorySummary"
+    TriggerSyncData:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - queued
     MeResponse:
       type: object
       required:
@@ -576,3 +868,31 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/ImportGitHubRepositoriesData"
+    JobResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/JobResponseData"
+    OrganizationRepositoriesResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/OrganizationRepositoriesData"
+    RepositoryDetailResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/RepositoryDetailData"
+    TriggerSyncResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/TriggerSyncData"

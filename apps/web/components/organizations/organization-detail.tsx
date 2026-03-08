@@ -30,6 +30,14 @@ export function OrganizationDetailClient({ orgId }: { orgId: string }) {
               <p className="mt-1 text-sm font-medium text-slate-900">Ready for repository import</p>
             </div>
           </div>
+          <div className="mt-5">
+            <a
+              href={`/organizations/${orgId}/repositories`}
+              className="inline-flex rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              View persisted repositories
+            </a>
+          </div>
         </article>
       ) : null}
     </section>

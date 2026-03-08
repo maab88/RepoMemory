@@ -115,6 +115,14 @@ export function RepositoryImportCard() {
       ) : null}
 
       <RepositoryImportTable repositories={imported} />
+      {imported.length > 0 && organizationId ? (
+        <a
+          href={`/organizations/${organizationId}/repositories`}
+          className="inline-flex text-sm font-medium text-slate-700 underline hover:text-slate-900"
+        >
+          Open persisted organization repository list
+        </a>
+      ) : null}
     </section>
   );
 }

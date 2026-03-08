@@ -3,8 +3,9 @@ package config
 import "os"
 
 type Config struct {
-	Env       string
-	RedisAddr string
+	Env         string
+	RedisAddr   string
+	DatabaseURL string
 }
 
 func Load() Config {
@@ -18,5 +19,10 @@ func Load() Config {
 		redisAddr = "127.0.0.1:6379"
 	}
 
-	return Config{Env: env, RedisAddr: redisAddr}
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://postgres:postgres@localhost:5432/repomemory?sslmode=disable"
+	}
+
+	return Config{Env: env, RedisAddr: redisAddr, DatabaseURL: databaseURL}
 }
