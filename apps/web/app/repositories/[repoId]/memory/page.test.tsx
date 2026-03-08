@@ -1,5 +1,6 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import RepositoryMemoryPage from "@/app/repositories/[repoId]/memory/page";
 
@@ -7,6 +8,8 @@ const useParamsMock = vi.fn();
 const useRepositoryDetailMock = vi.fn();
 const useRepositoryMemoryMock = vi.fn();
 const useMemoryDetailMock = vi.fn();
+const useGenerateMemoryMock = vi.fn();
+const useJobStatusMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useParams: () => useParamsMock(),
@@ -24,7 +27,22 @@ vi.mock("@/lib/hooks/use-memory-detail", () => ({
   useMemoryDetail: (repoId: string, memoryId: string | null) => useMemoryDetailMock(repoId, memoryId),
 }));
 
+vi.mock("@/lib/hooks/use-generate-memory", () => ({
+  useGenerateMemory: () => useGenerateMemoryMock(),
+}));
+
+vi.mock("@/lib/hooks/use-job-status", () => ({
+  useJobStatus: (jobId: string | null) => useJobStatusMock(jobId),
+}));
+
 describe("RepositoryMemoryPage", () => {
+  const renderPage = () =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RepositoryMemoryPage />
+      </QueryClientProvider>
+    );
+
   beforeEach(() => {
     useParamsMock.mockReturnValue({ repoId: "repo-1" });
     useRepositoryDetailMock.mockReturnValue({
@@ -41,6 +59,13 @@ describe("RepositoryMemoryPage", () => {
       error: null,
       data: null,
     });
+    useGenerateMemoryMock.mockReturnValue({
+      isPending: false,
+      mutateAsync: vi.fn().mockResolvedValue({ jobId: "job-1", status: "queued" }),
+    });
+    useJobStatusMock.mockReturnValue({
+      data: null,
+    });
   });
 
   it("renders empty state", () => {
@@ -50,8 +75,27 @@ describe("RepositoryMemoryPage", () => {
       data: { memoryEntries: [] },
     });
 
-    render(<RepositoryMemoryPage />);
+    renderPage();
     expect(screen.getByText("No memory entries yet")).toBeInTheDocument();
+  });
+
+  it("empty state CTA triggers generation", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ jobId: "job-1", status: "queued" });
+    useGenerateMemoryMock.mockReturnValue({
+      isPending: false,
+      mutateAsync,
+    });
+    useRepositoryMemoryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: { memoryEntries: [] },
+    });
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Generate memory" }));
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith("repo-1");
+    });
   });
 
   it("renders timeline entries and filter state", () => {
@@ -79,7 +123,7 @@ describe("RepositoryMemoryPage", () => {
       },
     });
 
-    render(<RepositoryMemoryPage />);
+    renderPage();
     expect(screen.getByText("PR memory")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "pr summary" }));
@@ -136,7 +180,7 @@ describe("RepositoryMemoryPage", () => {
         : null,
     }));
 
-    render(<RepositoryMemoryPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Open detail" }));
     expect(screen.getByRole("dialog", { name: "Memory detail" })).toBeInTheDocument();
     expect(screen.getByText("PR #1")).toBeInTheDocument();

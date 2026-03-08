@@ -26,6 +26,10 @@ func (f *fakeJobEnqueuer) EnqueueRepositoryInitialSync(context.Context, uuid.UUI
 	return servicejobs.Job{ID: uuid.New(), Status: "queued"}, nil
 }
 
+func (f *fakeJobEnqueuer) EnqueueRepositoryGenerateMemory(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (servicejobs.Job, error) {
+	return servicejobs.Job{ID: uuid.New(), Status: "queued"}, nil
+}
+
 func TestListOrganizationRepositoriesForbidden(t *testing.T) {
 	svc := NewService(
 		&repostore.RepositoryRepository{},

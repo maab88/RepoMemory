@@ -10,6 +10,8 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 export type { CreateOrganizationRequest } from './models/CreateOrganizationRequest';
 export type { ErrorDetail } from './models/ErrorDetail';
 export type { ErrorResponse } from './models/ErrorResponse';
+export type { GenerateMemoryData } from './models/GenerateMemoryData';
+export type { GenerateMemoryResponse } from './models/GenerateMemoryResponse';
 export type { GitHubCallbackSuccessData } from './models/GitHubCallbackSuccessData';
 export type { GitHubCallbackSuccessResponse } from './models/GitHubCallbackSuccessResponse';
 export type { GitHubConnectionSummary } from './models/GitHubConnectionSummary';

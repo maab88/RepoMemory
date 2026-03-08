@@ -1,6 +1,7 @@
 import {
   JobsService,
   RepositoriesService,
+  type GenerateMemoryData,
   type JobResponseData,
   type MemoryEntryDetailData,
   type MemoryEntryListData,
@@ -38,4 +39,8 @@ export function listRepositoryMemory(repoId: string): Promise<MemoryEntryListDat
 
 export function getRepositoryMemoryDetail(repoId: string, memoryId: string): Promise<MemoryEntryDetailData> {
   return unwrapData(RepositoriesService.getRepositoryMemoryDetail(repoId, memoryId));
+}
+
+export function generateRepositoryMemory(repoId: string): Promise<GenerateMemoryData> {
+  return unwrapData(RepositoriesService.generateRepositoryMemory(repoId));
 }

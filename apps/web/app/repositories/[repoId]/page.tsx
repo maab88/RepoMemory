@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { RepositoryMemoryActions } from "@/components/repositories/repository-memory-actions";
 import { RepositorySyncStatusCard } from "@/components/repositories/repository-sync-status-card";
 import { RepositoryStatsCards } from "@/components/repositories/repository-stats-cards";
+import { useGenerateMemory } from "@/lib/hooks/use-generate-memory";
 import { useJobStatus } from "@/lib/hooks/use-job-status";
 import { useRepositoryDetail } from "@/lib/hooks/use-repository-detail";
 import { useTriggerSync } from "@/lib/hooks/use-trigger-sync";
@@ -16,8 +18,12 @@ export default function RepositoryDetailPage() {
   const queryClient = useQueryClient();
   const repoQuery = useRepositoryDetail(params.repoId);
   const triggerSync = useTriggerSync();
+  const generateMemory = useGenerateMemory();
   const [activeJobID, setActiveJobID] = useState<string | null>(null);
+  const [memoryJobID, setMemoryJobID] = useState<string | null>(null);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
   const jobQuery = useJobStatus(activeJobID);
+  const memoryJobQuery = useJobStatus(memoryJobID);
 
   useEffect(() => {
     const status = jobQuery.data?.job.status;
@@ -28,9 +34,32 @@ export default function RepositoryDetailPage() {
     }
   }, [jobQuery.data?.job.status, params.repoId, queryClient]);
 
+  useEffect(() => {
+    const status = memoryJobQuery.data?.job.status;
+    if (status === "succeeded" || status === "failed") {
+      void queryClient.invalidateQueries({ queryKey: ["repository-detail", params.repoId] });
+      void queryClient.invalidateQueries({ queryKey: ["repository-memory", params.repoId] });
+      void queryClient.invalidateQueries({ queryKey: ["repositories"] });
+      void queryClient.invalidateQueries({ queryKey: ["organization-repositories"] });
+    }
+    if (status === "failed") {
+      setMemoryError(memoryJobQuery.data?.job.lastError ?? "Memory generation failed. Please try again.");
+    }
+  }, [memoryJobQuery.data?.job.lastError, memoryJobQuery.data?.job.status, params.repoId, queryClient]);
+
   const onTriggerSync = async () => {
     const response = await triggerSync.mutateAsync(params.repoId);
     setActiveJobID(response.jobId);
+  };
+
+  const onGenerateMemory = async () => {
+    setMemoryError(null);
+    try {
+      const response = await generateMemory.mutateAsync(params.repoId);
+      setMemoryJobID(response.jobId);
+    } catch {
+      setMemoryError("Could not queue memory generation.");
+    }
   };
 
   return (
@@ -63,6 +92,14 @@ export default function RepositoryDetailPage() {
               <Link href={`/repositories/${params.repoId}/memory`} className="text-sm font-medium text-slate-600 underline decoration-slate-300 hover:text-slate-900">
                 Open memory timeline
               </Link>
+            </div>
+            <div className="mt-4">
+              <RepositoryMemoryActions
+                onGenerateMemory={onGenerateMemory}
+                isGenerating={generateMemory.isPending}
+                generationStatus={memoryJobQuery.data?.job.status ?? null}
+                generationError={memoryError}
+              />
             </div>
           </article>
 

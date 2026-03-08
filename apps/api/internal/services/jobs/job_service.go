@@ -31,6 +31,7 @@ type RepositoryReader interface {
 
 type RepoInitialSyncEnqueuer interface {
 	EnqueueRepoInitialSync(ctx context.Context, payload jobdefs.RepoInitialSyncPayload) (jobdefs.JobRecord, error)
+	EnqueueRepoGenerateMemory(ctx context.Context, payload jobdefs.RepoGenerateMemoryPayload) (jobdefs.JobRecord, error)
 }
 
 type Service struct {
@@ -89,6 +90,33 @@ func (s *Service) EnqueueRepositoryInitialSync(
 	repositoryID, organizationID, triggeredByUserID uuid.UUID,
 ) (Job, error) {
 	created, err := s.enqueuer.EnqueueRepoInitialSync(ctx, jobdefs.RepoInitialSyncPayload{
+		RepositoryID:      repositoryID,
+		OrganizationID:    organizationID,
+		TriggeredByUserID: triggeredByUserID,
+	})
+	if err != nil {
+		return Job{}, err
+	}
+
+	now := time.Now().UTC()
+	return Job{
+		ID:        created.ID,
+		JobType:   created.JobType,
+		Status:    created.Status,
+		QueueName: created.QueueName,
+		Attempts:  created.Attempts,
+		LastError: created.LastError,
+		Payload:   created.Payload,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}, nil
+}
+
+func (s *Service) EnqueueRepositoryGenerateMemory(
+	ctx context.Context,
+	repositoryID, organizationID, triggeredByUserID uuid.UUID,
+) (Job, error) {
+	created, err := s.enqueuer.EnqueueRepoGenerateMemory(ctx, jobdefs.RepoGenerateMemoryPayload{
 		RepositoryID:      repositoryID,
 		OrganizationID:    organizationID,
 		TriggeredByUserID: triggeredByUserID,
