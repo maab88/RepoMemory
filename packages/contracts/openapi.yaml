@@ -190,6 +190,56 @@ paths:
           $ref: "#/components/responses/ServiceUnavailableError"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/github/repositories:
+    get:
+      tags:
+        - GitHub
+      operationId: listGitHubRepositories
+      summary: List GitHub repositories accessible by the connected account
+      security:
+        - MockUserHeader: []
+      responses:
+        "200":
+          description: GitHub repositories available for import
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubRepositoriesListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+  /v1/github/repositories/import:
+    post:
+      tags:
+        - GitHub
+      operationId: importGitHubRepositories
+      summary: Import selected GitHub repositories into an organization
+      security:
+        - MockUserHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportGitHubRepositoriesRequest"
+      responses:
+        "200":
+          description: Imported repository records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportGitHubRepositoriesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MockUserHeader:
@@ -364,6 +414,106 @@ components:
         connectedAt:
           type: string
           format: date-time
+    GitHubRepository:
+      type: object
+      required:
+        - githubRepoId
+        - ownerLogin
+        - name
+        - fullName
+        - private
+        - defaultBranch
+        - htmlUrl
+      properties:
+        githubRepoId:
+          type: string
+        ownerLogin:
+          type: string
+        name:
+          type: string
+        fullName:
+          type: string
+        private:
+          type: boolean
+        defaultBranch:
+          type: string
+        htmlUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+    GitHubRepositoriesListData:
+      type: object
+      required:
+        - repositories
+      properties:
+        repositories:
+          type: array
+          items:
+            $ref: "#/components/schemas/GitHubRepository"
+    ImportedRepository:
+      type: object
+      required:
+        - id
+        - organizationId
+        - githubRepoId
+        - ownerLogin
+        - name
+        - fullName
+        - private
+        - defaultBranch
+        - htmlUrl
+        - importedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        githubRepoId:
+          type: string
+        ownerLogin:
+          type: string
+        name:
+          type: string
+        fullName:
+          type: string
+        private:
+          type: boolean
+        defaultBranch:
+          type: string
+        htmlUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+        importedAt:
+          type: string
+          format: date-time
+    ImportGitHubRepositoriesRequest:
+      type: object
+      required:
+        - organizationId
+        - repositories
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        repositories:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/GitHubRepository"
+    ImportGitHubRepositoriesData:
+      type: object
+      required:
+        - importedRepositories
+      properties:
+        importedRepositories:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportedRepository"
     GitHubCallbackSuccessData:
       type: object
       required:
@@ -412,3 +562,17 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/GitHubCallbackSuccessData"
+    GitHubRepositoriesListResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/GitHubRepositoriesListData"
+    ImportGitHubRepositoriesResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/ImportGitHubRepositoriesData"

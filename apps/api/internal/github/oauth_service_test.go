@@ -51,6 +51,10 @@ func (f *fakeGitHubClient) GetViewer(_ context.Context, _ string) (GitHubUser, e
 	return f.viewer, nil
 }
 
+func (f *fakeGitHubClient) ListRepositories(_ context.Context, _ string) ([]GitHubRepository, error) {
+	return nil, nil
+}
+
 type fakeTokenSealer struct {
 	sealed string
 	err    error
@@ -86,7 +90,7 @@ func (f *fakeAccountStore) UpsertGitHubAccount(_ context.Context, _ UpsertGitHub
 	return f.upsertResult, nil
 }
 
-func newConfiguredOAuthService(state StateService, githubClient GitHubClient, store AccountStore) *OAuthService {
+func newConfiguredOAuthService(state StateService, githubClient GitHubClient, store OAuthStore) *OAuthService {
 	return NewOAuthService(OAuthConfig{
 		ClientID:     "cid",
 		ClientSecret: "secret",

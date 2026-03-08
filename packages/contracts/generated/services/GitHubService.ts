@@ -3,6 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { GitHubCallbackSuccessResponse } from '../models/GitHubCallbackSuccessResponse';
+import type { GitHubRepositoriesListResponse } from '../models/GitHubRepositoriesListResponse';
+import type { ImportGitHubRepositoriesRequest } from '../models/ImportGitHubRepositoriesRequest';
+import type { ImportGitHubRepositoriesResponse } from '../models/ImportGitHubRepositoriesResponse';
 import type { StartGitHubConnectRequest } from '../models/StartGitHubConnectRequest';
 import type { StartGitHubConnectResponse } from '../models/StartGitHubConnectResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -57,6 +60,44 @@ export class GitHubService {
                 500: `Internal server error`,
                 502: `Upstream integration failed`,
                 503: `Service is not configured or temporarily unavailable`,
+            },
+        });
+    }
+    /**
+     * List GitHub repositories accessible by the connected account
+     * @returns GitHubRepositoriesListResponse GitHub repositories available for import
+     * @throws ApiError
+     */
+    public static listGitHubRepositories(): CancelablePromise<GitHubRepositoriesListResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/github/repositories',
+            errors: {
+                400: `Invalid request payload or parameters`,
+                401: `Missing or invalid auth headers`,
+                502: `Upstream integration failed`,
+            },
+        });
+    }
+    /**
+     * Import selected GitHub repositories into an organization
+     * @param requestBody
+     * @returns ImportGitHubRepositoriesResponse Imported repository records
+     * @throws ApiError
+     */
+    public static importGitHubRepositories(
+        requestBody: ImportGitHubRepositoriesRequest,
+    ): CancelablePromise<ImportGitHubRepositoriesResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/github/repositories/import',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid request payload or parameters`,
+                401: `Missing or invalid auth headers`,
+                403: `Authenticated user is not allowed to access this resource`,
+                500: `Internal server error`,
             },
         });
     }

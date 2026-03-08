@@ -18,6 +18,9 @@ var (
 	ErrGitHubUserFetchFailed    = errors.New("failed to fetch github user")
 	ErrOrganizationAccessDenied = errors.New("organization access denied")
 	ErrOAuthNotConfigured       = errors.New("github oauth is not configured")
+	ErrGitHubNotConnected       = errors.New("github account is not connected")
+	ErrImportRepositoriesEmpty  = errors.New("repositories payload is empty")
+	ErrInvalidRepositoryPayload = errors.New("invalid repository payload")
 )
 
 type OAuthConfig struct {
@@ -63,15 +66,24 @@ type StateService interface {
 type GitHubClient interface {
 	ExchangeCode(ctx context.Context, code, redirectURL string) (GitHubToken, error)
 	GetViewer(ctx context.Context, accessToken string) (GitHubUser, error)
+	ListRepositories(ctx context.Context, accessToken string) ([]GitHubRepository, error)
 }
 
 type TokenSealer interface {
 	Seal(token string) (string, error)
 }
 
-type AccountStore interface {
+type OAuthStore interface {
 	UpsertGitHubAccount(ctx context.Context, input UpsertGitHubAccountInput) (GitHubConnectionSummary, error)
 	UserHasMembership(ctx context.Context, userID, organizationID uuid.UUID) (bool, error)
+}
+
+type RepositoryStore interface {
+	UserHasMembership(ctx context.Context, userID, organizationID uuid.UUID) (bool, error)
+	GetLatestGitHubAccountForUser(ctx context.Context, userID uuid.UUID) (ConnectedGitHubAccount, error)
+	UpsertRepositoryForOrganization(ctx context.Context, organizationID uuid.UUID, repo GitHubRepository) (ImportedRepository, error)
+	EnsureRepositorySyncState(ctx context.Context, repositoryID uuid.UUID) error
+	InsertRepositoryImportAuditLog(ctx context.Context, actorUserID, organizationID, repositoryID uuid.UUID, repo GitHubRepository) error
 }
 
 type UpsertGitHubAccountInput struct {
@@ -90,6 +102,42 @@ type GitHubToken struct {
 type GitHubUser struct {
 	ID    int64  `json:"id"`
 	Login string `json:"login"`
+}
+
+type GitHubRepository struct {
+	GitHubRepoID  int64  `json:"githubRepoId"`
+	OwnerLogin    string `json:"ownerLogin"`
+	Name          string `json:"name"`
+	FullName      string `json:"fullName"`
+	Private       bool   `json:"private"`
+	DefaultBranch string `json:"defaultBranch"`
+	HTMLURL       string `json:"htmlUrl"`
+	Description   string `json:"description,omitempty"`
+}
+
+type ConnectedGitHubAccount struct {
+	UserID               uuid.UUID
+	AccessTokenEncrypted string
+}
+
+type ImportRepositoriesInput struct {
+	UserID         uuid.UUID
+	OrganizationID uuid.UUID
+	Repositories   []GitHubRepository
+}
+
+type ImportedRepository struct {
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organizationId"`
+	GitHubRepoID   string    `json:"githubRepoId"`
+	OwnerLogin     string    `json:"ownerLogin"`
+	Name           string    `json:"name"`
+	FullName       string    `json:"fullName"`
+	Private        bool      `json:"private"`
+	DefaultBranch  string    `json:"defaultBranch"`
+	HTMLURL        string    `json:"htmlUrl"`
+	Description    string    `json:"description,omitempty"`
+	ImportedAt     time.Time `json:"importedAt"`
 }
 
 type PlaintextTokenSealer struct{}

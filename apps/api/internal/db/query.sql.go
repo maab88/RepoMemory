@@ -73,6 +73,31 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 	return i, err
 }
 
+const getLatestGithubAccountForUser = `-- name: GetLatestGithubAccountForUser :one
+SELECT id, user_id, github_user_id, github_login, access_token_encrypted, token_scope, connected_at, created_at, updated_at
+FROM github_accounts
+WHERE user_id = $1
+ORDER BY connected_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestGithubAccountForUser(ctx context.Context, userID uuid.UUID) (GithubAccount, error) {
+	row := q.db.QueryRow(ctx, getLatestGithubAccountForUser, userID)
+	var i GithubAccount
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.GithubUserID,
+		&i.GithubLogin,
+		&i.AccessTokenEncrypted,
+		&i.TokenScope,
+		&i.ConnectedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getOrganizationByID = `-- name: GetOrganizationByID :one
 SELECT id, name, slug, created_at, updated_at
 FROM organizations

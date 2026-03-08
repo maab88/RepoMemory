@@ -42,8 +42,8 @@ export function GitHubCallbackStatus({ code, state }: { code?: string; state?: s
     <section className="mx-auto max-w-2xl rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-800">
       <h2 className="text-xl font-semibold">GitHub connected</h2>
       <p className="mt-2 text-sm">Your account <span className="font-semibold">{query.data.account.githubLogin}</span> is now connected.</p>
-      <a href="/settings/integrations/github" className="mt-4 inline-block text-sm font-semibold underline">
-        Back to integrations
+      <a href="/onboarding/repositories" className="mt-4 inline-block text-sm font-semibold underline">
+        Continue to repository import
       </a>
     </section>
   );

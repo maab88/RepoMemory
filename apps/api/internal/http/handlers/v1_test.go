@@ -31,11 +31,15 @@ type fakeOrgService struct {
 }
 
 type fakeGitHubOAuthService struct {
-	redirectURL string
-	account     gh.GitHubConnectionSummary
-	startErr    error
-	callbackErr error
-	callbacks   int
+	redirectURL  string
+	account      gh.GitHubConnectionSummary
+	repositories []gh.GitHubRepository
+	imported     []gh.ImportedRepository
+	startErr     error
+	callbackErr  error
+	listErr      error
+	importErr    error
+	callbacks    int
 }
 
 func (f *fakeGitHubOAuthService) StartConnect(_ context.Context, _ gh.OAuthStartInput) (string, error) {
@@ -45,6 +49,14 @@ func (f *fakeGitHubOAuthService) StartConnect(_ context.Context, _ gh.OAuthStart
 func (f *fakeGitHubOAuthService) HandleCallback(_ context.Context, _ gh.OAuthCallbackInput) (gh.GitHubConnectionSummary, error) {
 	f.callbacks++
 	return f.account, f.callbackErr
+}
+
+func (f *fakeGitHubOAuthService) ListGitHubRepositories(_ context.Context, _ uuid.UUID) ([]gh.GitHubRepository, error) {
+	return f.repositories, f.listErr
+}
+
+func (f *fakeGitHubOAuthService) ImportRepositories(_ context.Context, _ gh.ImportRepositoriesInput) ([]gh.ImportedRepository, error) {
+	return f.imported, f.importErr
 }
 
 func (f *fakeOrgService) CreateOrganization(_ context.Context, _ uuid.UUID, _ string) (org.OrganizationWithRole, error) {
@@ -63,7 +75,7 @@ func newTestRouter(orgSvc OrganizationService) http.Handler {
 	return newTestRouterWithGitHub(orgSvc, &fakeGitHubOAuthService{})
 }
 
-func newTestRouterWithGitHub(orgSvc OrganizationService, githubSvc GitHubOAuthService) http.Handler {
+func newTestRouterWithGitHub(orgSvc OrganizationService, githubSvc GitHubService) http.Handler {
 	h := NewV1Handler(orgSvc, githubSvc)
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -74,6 +86,8 @@ func newTestRouterWithGitHub(orgSvc OrganizationService, githubSvc GitHubOAuthSe
 		r.Get("/organizations/{orgId}", h.GetOrganization)
 		r.Post("/github/connect/start", h.StartGitHubConnect)
 		r.Get("/github/callback", h.GitHubCallback)
+		r.Get("/github/repositories", h.ListGitHubRepositories)
+		r.Post("/github/repositories/import", h.ImportGitHubRepositories)
 	})
 	return r
 }
@@ -313,5 +327,94 @@ func TestStartGitHubConnectOrganizationForbidden(t *testing.T) {
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", rr.Code)
+	}
+}
+
+func TestListGitHubRepositoriesSuccess(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{
+		repositories: []gh.GitHubRepository{
+			{
+				GitHubRepoID:  123,
+				OwnerLogin:    "octocat",
+				Name:          "repo-memory",
+				FullName:      "octocat/repo-memory",
+				Private:       true,
+				DefaultBranch: "main",
+				HTMLURL:       "https://github.com/octocat/repo-memory",
+				Description:   "Internal tools",
+			},
+		},
+	})
+	req := httptest.NewRequest(http.MethodGet, "/v1/github/repositories", nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+}
+
+func TestListGitHubRepositoriesNotConnected(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{listErr: gh.ErrGitHubNotConnected})
+	req := httptest.NewRequest(http.MethodGet, "/v1/github/repositories", nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestImportGitHubRepositoriesForbidden(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{importErr: gh.ErrOrganizationAccessDenied})
+	req := httptest.NewRequest(http.MethodPost, "/v1/github/repositories/import", bytes.NewBufferString(`{"organizationId":"`+uuid.New().String()+`","repositories":[{"githubRepoId":"123","ownerLogin":"octocat","name":"repo","fullName":"octocat/repo","private":true,"defaultBranch":"main","htmlUrl":"https://github.com/octocat/repo"}]}`))
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rr.Code)
+	}
+}
+
+func TestImportGitHubRepositoriesSuccess(t *testing.T) {
+	imported := []gh.ImportedRepository{
+		{
+			ID:             uuid.New(),
+			OrganizationID: uuid.New(),
+			GitHubRepoID:   "123",
+			OwnerLogin:     "octocat",
+			Name:           "repo-memory",
+			FullName:       "octocat/repo-memory",
+			Private:        true,
+			DefaultBranch:  "main",
+			HTMLURL:        "https://github.com/octocat/repo-memory",
+		},
+	}
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{imported: imported})
+	req := httptest.NewRequest(http.MethodPost, "/v1/github/repositories/import", bytes.NewBufferString(`{"organizationId":"`+imported[0].OrganizationID.String()+`","repositories":[{"githubRepoId":"123","ownerLogin":"octocat","name":"repo-memory","fullName":"octocat/repo-memory","private":true,"defaultBranch":"main","htmlUrl":"https://github.com/octocat/repo-memory"}]}`))
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+}
+
+func TestImportGitHubRepositoriesNotConnected(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{importErr: gh.ErrGitHubNotConnected})
+	req := httptest.NewRequest(http.MethodPost, "/v1/github/repositories/import", bytes.NewBufferString(`{"organizationId":"`+uuid.New().String()+`","repositories":[{"githubRepoId":"123","ownerLogin":"octocat","name":"repo-memory","fullName":"octocat/repo-memory","private":true,"defaultBranch":"main","htmlUrl":"https://github.com/octocat/repo-memory"}]}`))
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
 	}
 }

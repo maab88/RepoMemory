@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -23,16 +24,18 @@ type OrganizationService interface {
 
 type V1Handler struct {
 	orgService    OrganizationService
-	githubService GitHubOAuthService
+	githubService GitHubService
 }
 
-func NewV1Handler(orgService OrganizationService, githubService GitHubOAuthService) *V1Handler {
+func NewV1Handler(orgService OrganizationService, githubService GitHubService) *V1Handler {
 	return &V1Handler{orgService: orgService, githubService: githubService}
 }
 
-type GitHubOAuthService interface {
+type GitHubService interface {
 	StartConnect(ctx context.Context, input gh.OAuthStartInput) (string, error)
 	HandleCallback(ctx context.Context, input gh.OAuthCallbackInput) (gh.GitHubConnectionSummary, error)
+	ListGitHubRepositories(ctx context.Context, userID uuid.UUID) ([]gh.GitHubRepository, error)
+	ImportRepositories(ctx context.Context, input gh.ImportRepositoriesInput) ([]gh.ImportedRepository, error)
 }
 
 type meResponse struct {
@@ -173,6 +176,30 @@ type githubCallbackResponse struct {
 	Account   gh.GitHubConnectionSummary `json:"account"`
 }
 
+type githubRepositoryDTO struct {
+	GitHubRepoID  string `json:"githubRepoId"`
+	OwnerLogin    string `json:"ownerLogin"`
+	Name          string `json:"name"`
+	FullName      string `json:"fullName"`
+	Private       bool   `json:"private"`
+	DefaultBranch string `json:"defaultBranch"`
+	HTMLURL       string `json:"htmlUrl"`
+	Description   string `json:"description,omitempty"`
+}
+
+type githubRepositoriesListResponse struct {
+	Repositories []githubRepositoryDTO `json:"repositories"`
+}
+
+type importGitHubRepositoriesRequest struct {
+	OrganizationID string                `json:"organizationId"`
+	Repositories   []githubRepositoryDTO `json:"repositories"`
+}
+
+type importGitHubRepositoriesResponse struct {
+	ImportedRepositories []gh.ImportedRepository `json:"importedRepositories"`
+}
+
 func (h *V1Handler) StartGitHubConnect(w http.ResponseWriter, r *http.Request) {
 	currentUser, ok := auth.CurrentUserFromContext(r.Context())
 	if !ok {
@@ -249,4 +276,99 @@ func (h *V1Handler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteData(w, http.StatusOK, githubCallbackResponse{Connected: true, Account: account})
+}
+
+func (h *V1Handler) ListGitHubRepositories(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := auth.CurrentUserFromContext(r.Context())
+	if !ok {
+		response.WriteError(w, http.StatusUnauthorized, "unauthorized", "missing current user")
+		return
+	}
+
+	repos, err := h.githubService.ListGitHubRepositories(r.Context(), currentUser.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, gh.ErrGitHubNotConnected):
+			response.WriteError(w, http.StatusBadRequest, "github_not_connected", "github account is not connected")
+		default:
+			response.WriteError(w, http.StatusBadGateway, "github_repositories_fetch_failed", "failed to fetch github repositories")
+		}
+		return
+	}
+
+	payload := make([]githubRepositoryDTO, 0, len(repos))
+	for _, repo := range repos {
+		payload = append(payload, githubRepositoryDTO{
+			GitHubRepoID:  strconv.FormatInt(repo.GitHubRepoID, 10),
+			OwnerLogin:    repo.OwnerLogin,
+			Name:          repo.Name,
+			FullName:      repo.FullName,
+			Private:       repo.Private,
+			DefaultBranch: repo.DefaultBranch,
+			HTMLURL:       repo.HTMLURL,
+			Description:   repo.Description,
+		})
+	}
+
+	response.WriteData(w, http.StatusOK, githubRepositoriesListResponse{Repositories: payload})
+}
+
+func (h *V1Handler) ImportGitHubRepositories(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := auth.CurrentUserFromContext(r.Context())
+	if !ok {
+		response.WriteError(w, http.StatusUnauthorized, "unauthorized", "missing current user")
+		return
+	}
+
+	var req importGitHubRepositoriesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "bad_request", "invalid request payload")
+		return
+	}
+
+	organizationID, err := uuid.Parse(req.OrganizationID)
+	if err != nil {
+		response.WriteError(w, http.StatusBadRequest, "bad_request", "invalid organization id")
+		return
+	}
+
+	repos := make([]gh.GitHubRepository, 0, len(req.Repositories))
+	for _, repo := range req.Repositories {
+		githubRepoID, parseErr := strconv.ParseInt(repo.GitHubRepoID, 10, 64)
+		if parseErr != nil {
+			response.WriteError(w, http.StatusBadRequest, "bad_request", "invalid github repository id")
+			return
+		}
+		repos = append(repos, gh.GitHubRepository{
+			GitHubRepoID:  githubRepoID,
+			OwnerLogin:    repo.OwnerLogin,
+			Name:          repo.Name,
+			FullName:      repo.FullName,
+			Private:       repo.Private,
+			DefaultBranch: repo.DefaultBranch,
+			HTMLURL:       repo.HTMLURL,
+			Description:   repo.Description,
+		})
+	}
+
+	imported, err := h.githubService.ImportRepositories(r.Context(), gh.ImportRepositoriesInput{
+		UserID:         currentUser.ID,
+		OrganizationID: organizationID,
+		Repositories:   repos,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, gh.ErrOrganizationAccessDenied):
+			response.WriteError(w, http.StatusForbidden, "forbidden", "access denied")
+		case errors.Is(err, gh.ErrGitHubNotConnected):
+			response.WriteError(w, http.StatusBadRequest, "github_not_connected", "github account is not connected")
+		case errors.Is(err, gh.ErrImportRepositoriesEmpty), errors.Is(err, gh.ErrInvalidRepositoryPayload):
+			response.WriteError(w, http.StatusBadRequest, "bad_request", "invalid repositories payload")
+		default:
+			response.WriteError(w, http.StatusInternalServerError, "internal_error", "failed to import repositories")
+		}
+		return
+	}
+
+	response.WriteData(w, http.StatusOK, importGitHubRepositoriesResponse{ImportedRepositories: imported})
 }

@@ -428,3 +428,10 @@ DO UPDATE SET
   connected_at = NOW(),
   updated_at = NOW()
 RETURNING *;
+
+-- name: GetLatestGithubAccountForUser :one
+SELECT *
+FROM github_accounts
+WHERE user_id = $1
+ORDER BY connected_at DESC
+LIMIT 1;

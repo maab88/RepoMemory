@@ -12,11 +12,11 @@ type OAuthService struct {
 	cfg         OAuthConfig
 	state       StateService
 	github      GitHubClient
-	store       AccountStore
+	store       OAuthStore
 	tokenSealer TokenSealer
 }
 
-func NewOAuthService(cfg OAuthConfig, state StateService, githubClient GitHubClient, store AccountStore, tokenSealer TokenSealer) *OAuthService {
+func NewOAuthService(cfg OAuthConfig, state StateService, githubClient GitHubClient, store OAuthStore, tokenSealer TokenSealer) *OAuthService {
 	return &OAuthService{
 		cfg:         cfg,
 		state:       state,

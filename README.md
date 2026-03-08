@@ -74,6 +74,16 @@ Connect flow routes:
 - `POST /v1/github/connect/start`
 - `GET /v1/github/callback` (JSON callback completion endpoint, consumed by web callback page)
 
+Repository flow routes:
+- `GET /v1/github/repositories`
+- `POST /v1/github/repositories/import`
+
+Import behavior:
+- Import upserts on `(organization_id, github_repo_id)` and returns imported rows.
+- Re-import updates metadata safely; it does not create duplicate repository rows.
+- Initial repository sync state is upserted and an audit log entry is created per imported repository.
+- GitHub repository listing uses v1 single-page fetch (`per_page=100`), no API pagination response yet.
+
 ## API Contract Workflow
 - Source of truth: `packages/contracts/openapi.yaml`
 - Generated client output: `packages/contracts/generated`

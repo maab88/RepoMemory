@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	CreateMembership(ctx context.Context, arg CreateMembershipParams) (Membership, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
+	GetLatestGithubAccountForUser(ctx context.Context, userID uuid.UUID) (GithubAccount, error)
 	GetOrganizationByID(ctx context.Context, id uuid.UUID) (Organization, error)
 	GetOrganizationForUser(ctx context.Context, arg GetOrganizationForUserParams) (GetOrganizationForUserRow, error)
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)

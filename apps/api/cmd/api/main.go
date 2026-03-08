@@ -53,7 +53,9 @@ func main() {
 		StateTTL:     cfg.GitHubStateTTL,
 		Scope:        cfg.GitHubOAuthScope,
 	}, githubState, githubClient, githubStore, gh.PlaintextTokenSealer{})
-	v1Handler := handlers.NewV1Handler(orgService, githubOAuth)
+	githubRepositories := gh.NewRepositoryService(githubClient, githubStore)
+	githubService := gh.NewService(githubOAuth, githubRepositories)
+	v1Handler := handlers.NewV1Handler(orgService, githubService)
 
 	h := router.New(router.Dependencies{
 		AuthMiddleware: auth.RequireMockAuth(userResolver),
