@@ -23,6 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <a href="/repositories" className="font-medium text-slate-600 hover:text-slate-900">
                     Repositories
                   </a>
+                  <a href="/search" className="font-medium text-slate-600 hover:text-slate-900">
+                    Search
+                  </a>
                   <a href="/settings/integrations/github" className="font-medium text-slate-600 hover:text-slate-900">
                     Integrations
                   </a>

@@ -24,7 +24,7 @@ func TestGenerateRepositoryMemoryReturnsQueuedJob(t *testing.T) {
 			UpdatedAt: time.Now().UTC(),
 		},
 	}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{})
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{}, &noopSearchService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -44,7 +44,7 @@ func TestGenerateRepositoryMemoryReturnsQueuedJob(t *testing.T) {
 
 func TestGenerateRepositoryMemoryForbidden(t *testing.T) {
 	repoSvc := &fakeRepositoryQueryService{memoryErr: servicerepositories.ErrRepositoryForbidden}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{})
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{}, &noopSearchService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -64,7 +64,7 @@ func TestGenerateRepositoryMemoryForbidden(t *testing.T) {
 
 func TestGenerateRepositoryMemoryNotFound(t *testing.T) {
 	repoSvc := &fakeRepositoryQueryService{memoryErr: servicerepositories.ErrRepositoryNotFound}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{})
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{}, &noopSearchService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
