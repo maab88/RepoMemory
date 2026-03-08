@@ -424,6 +424,39 @@ paths:
           $ref: "#/components/responses/NotFoundError"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/repositories/{repoId}/memory/generate:
+    post:
+      tags:
+        - Repositories
+      operationId: generateRepositoryMemory
+      summary: Enqueue repository memory generation
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: repoId
+          in: path
+          required: true
+          description: Repository identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Memory generation job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateMemoryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/repositories/{repoId}/memory/{memoryId}:
     get:
       tags:
@@ -1010,6 +1043,19 @@ components:
       properties:
         memoryEntry:
           $ref: "#/components/schemas/MemoryEntryDetail"
+    GenerateMemoryData:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - queued
     MeResponse:
       type: object
       required:
@@ -1110,3 +1156,10 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/MemoryEntryDetailData"
+    GenerateMemoryResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/GenerateMemoryData"

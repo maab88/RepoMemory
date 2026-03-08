@@ -24,6 +24,7 @@ type MembershipChecker interface {
 
 type JobEnqueuer interface {
 	EnqueueRepositoryInitialSync(ctx context.Context, repositoryID, organizationID, triggeredByUserID uuid.UUID) (servicejobs.Job, error)
+	EnqueueRepositoryGenerateMemory(ctx context.Context, repositoryID, organizationID, triggeredByUserID uuid.UUID) (servicejobs.Job, error)
 }
 
 type Service struct {
@@ -226,4 +227,13 @@ func (s *Service) TriggerInitialSync(ctx context.Context, userID, repositoryID u
 	}
 
 	return s.jobEnqueuer.EnqueueRepositoryInitialSync(ctx, repo.ID, repo.OrganizationID, userID)
+}
+
+func (s *Service) TriggerMemoryGeneration(ctx context.Context, userID, repositoryID uuid.UUID) (servicejobs.Job, error) {
+	repo, err := s.GetRepository(ctx, userID, repositoryID)
+	if err != nil {
+		return servicejobs.Job{}, err
+	}
+
+	return s.jobEnqueuer.EnqueueRepositoryGenerateMemory(ctx, repo.ID, repo.OrganizationID, userID)
 }

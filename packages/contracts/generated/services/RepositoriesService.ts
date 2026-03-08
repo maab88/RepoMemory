@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { GenerateMemoryResponse } from '../models/GenerateMemoryResponse';
 import type { MemoryEntryDetailResponse } from '../models/MemoryEntryDetailResponse';
 import type { MemoryEntryListResponse } from '../models/MemoryEntryListResponse';
 import type { OrganizationRepositoriesResponse } from '../models/OrganizationRepositoriesResponse';
@@ -110,6 +111,30 @@ export class RepositoriesService {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/v1/repositories/{repoId}/memory',
+            path: {
+                'repoId': repoId,
+            },
+            errors: {
+                400: `Invalid request payload or parameters`,
+                401: `Missing or invalid auth headers`,
+                403: `Authenticated user is not allowed to access this resource`,
+                404: `Resource not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Enqueue repository memory generation
+     * @param repoId Repository identifier
+     * @returns GenerateMemoryResponse Memory generation job queued
+     * @throws ApiError
+     */
+    public static generateRepositoryMemory(
+        repoId: string,
+    ): CancelablePromise<GenerateMemoryResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/repositories/{repoId}/memory/generate',
             path: {
                 'repoId': repoId,
             },

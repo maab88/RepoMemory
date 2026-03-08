@@ -61,6 +61,7 @@ type fakeRepositoryService struct {
 	listErr      error
 	getErr       error
 	syncErr      error
+	memoryErr    error
 }
 
 func (f *fakeRepositoryService) ListRepositoriesForUser(_ context.Context, _ uuid.UUID) ([]servicerepositories.Repository, error) {
@@ -77,6 +78,10 @@ func (f *fakeRepositoryService) GetRepository(_ context.Context, _, _ uuid.UUID)
 
 func (f *fakeRepositoryService) TriggerInitialSync(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
 	return f.job, f.syncErr
+}
+
+func (f *fakeRepositoryService) TriggerMemoryGeneration(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
+	return f.job, f.memoryErr
 }
 
 func (f *fakeGitHubOAuthService) StartConnect(_ context.Context, _ gh.OAuthStartInput) (string, error) {

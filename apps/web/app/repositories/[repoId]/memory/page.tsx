@@ -3,23 +3,33 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { MemoryDetailDrawer } from "@/components/memory/memory-detail-drawer";
+import { MemoryEmptyState } from "@/components/memory/memory-empty-state";
 import { MemoryFilters } from "@/components/memory/memory-filters";
 import { MemoryTimeline } from "@/components/memory/memory-timeline";
+import { useGenerateMemory } from "@/lib/hooks/use-generate-memory";
+import { useJobStatus } from "@/lib/hooks/use-job-status";
 import { useMemoryDetail } from "@/lib/hooks/use-memory-detail";
 import { useRepositoryDetail } from "@/lib/hooks/use-repository-detail";
 import { useRepositoryMemory } from "@/lib/hooks/use-repository-memory";
+import { useEffect } from "react";
 
 export default function RepositoryMemoryPage() {
   const params = useParams<{ repoId: string }>();
   const repoId = params.repoId;
+  const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [activeMemoryID, setActiveMemoryID] = useState<string | null>(null);
+  const [memoryJobID, setMemoryJobID] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
+  const generateMemory = useGenerateMemory();
   const repositoryQuery = useRepositoryDetail(repoId);
   const memoryQuery = useRepositoryMemory(repoId);
   const memoryDetailQuery = useMemoryDetail(repoId, activeMemoryID);
+  const memoryJobQuery = useJobStatus(memoryJobID);
 
   const availableTypes = useMemo(() => {
     const set = new Set((memoryQuery.data?.memoryEntries ?? []).map((entry) => entry.type));
@@ -31,6 +41,29 @@ export default function RepositoryMemoryPage() {
     if (typeFilter === "all") return entries;
     return entries.filter((entry) => entry.type === typeFilter);
   }, [memoryQuery.data?.memoryEntries, typeFilter]);
+
+  useEffect(() => {
+    const status = memoryJobQuery.data?.job.status;
+    if (status === "succeeded" || status === "failed") {
+      void queryClient.invalidateQueries({ queryKey: ["repository-memory", repoId] });
+      void queryClient.invalidateQueries({ queryKey: ["repository-detail", repoId] });
+      void queryClient.invalidateQueries({ queryKey: ["repositories"] });
+      void queryClient.invalidateQueries({ queryKey: ["organization-repositories"] });
+    }
+    if (status === "failed") {
+      setGenerationError(memoryJobQuery.data?.job.lastError ?? "Memory generation failed. Please try again.");
+    }
+  }, [memoryJobQuery.data?.job.lastError, memoryJobQuery.data?.job.status, queryClient, repoId]);
+
+  const onGenerateMemory = async () => {
+    setGenerationError(null);
+    try {
+      const response = await generateMemory.mutateAsync(repoId);
+      setMemoryJobID(response.jobId);
+    } catch {
+      setGenerationError("Could not queue memory generation.");
+    }
+  };
 
   return (
     <section className="space-y-6">
@@ -68,10 +101,12 @@ export default function RepositoryMemoryPage() {
       ) : null}
 
       {!memoryQuery.isLoading && !memoryQuery.error && (memoryQuery.data?.memoryEntries.length ?? 0) === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <h3 className="text-xl font-semibold text-slate-900">No memory entries yet</h3>
-          <p className="mt-2 text-sm text-slate-600">Trigger repository sync and memory generation to populate this timeline.</p>
-        </div>
+        <MemoryEmptyState
+          onGenerateMemory={onGenerateMemory}
+          isGenerating={generateMemory.isPending}
+          generationStatus={memoryJobQuery.data?.job.status ?? null}
+          generationError={generationError}
+        />
       ) : null}
 
       {!memoryQuery.isLoading && !memoryQuery.error && (memoryQuery.data?.memoryEntries.length ?? 0) > 0 && filteredEntries.length === 0 ? (

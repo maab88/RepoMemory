@@ -65,6 +65,7 @@ type RepositoryService interface {
 	ListOrganizationRepositories(ctx context.Context, userID, organizationID uuid.UUID) ([]servicerepositories.Repository, error)
 	GetRepository(ctx context.Context, userID, repositoryID uuid.UUID) (servicerepositories.Repository, error)
 	TriggerInitialSync(ctx context.Context, userID, repositoryID uuid.UUID) (servicejobs.Job, error)
+	TriggerMemoryGeneration(ctx context.Context, userID, repositoryID uuid.UUID) (servicejobs.Job, error)
 }
 
 type MemoryService interface {

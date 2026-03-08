@@ -59,6 +59,9 @@ func (n *noopRepositoryService) GetRepository(context.Context, uuid.UUID, uuid.U
 func (n *noopRepositoryService) TriggerInitialSync(context.Context, uuid.UUID, uuid.UUID) (servicejobs.Job, error) {
 	return servicejobs.Job{}, nil
 }
+func (n *noopRepositoryService) TriggerMemoryGeneration(context.Context, uuid.UUID, uuid.UUID) (servicejobs.Job, error) {
+	return servicejobs.Job{}, nil
+}
 
 type noopMemoryService struct{}
 

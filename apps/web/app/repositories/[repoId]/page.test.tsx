@@ -5,7 +5,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import RepositoryDetailPage from "@/app/repositories/[repoId]/page";
 
 const useRepositoryDetailMock = vi.fn();
-const mutateAsyncMock = vi.fn();
+const triggerSyncMutateAsyncMock = vi.fn();
+const generateMemoryMutateAsyncMock = vi.fn();
 const useJobStatusMock = vi.fn();
 const useParamsMock = vi.fn();
 
@@ -16,7 +17,14 @@ vi.mock("@/lib/hooks/use-repository-detail", () => ({
 vi.mock("@/lib/hooks/use-trigger-sync", () => ({
   useTriggerSync: () => ({
     isPending: false,
-    mutateAsync: (repoId: string) => mutateAsyncMock(repoId),
+    mutateAsync: (repoId: string) => triggerSyncMutateAsyncMock(repoId),
+  }),
+}));
+
+vi.mock("@/lib/hooks/use-generate-memory", () => ({
+  useGenerateMemory: () => ({
+    isPending: false,
+    mutateAsync: (repoId: string) => generateMemoryMutateAsyncMock(repoId),
   }),
 }));
 
@@ -58,7 +66,8 @@ describe("RepositoryDetailPage", () => {
     useJobStatusMock.mockReturnValue({
       data: null,
     });
-    mutateAsyncMock.mockResolvedValue({ jobId: "job-1", status: "queued" });
+    triggerSyncMutateAsyncMock.mockResolvedValue({ jobId: "job-1", status: "queued" });
+    generateMemoryMutateAsyncMock.mockResolvedValue({ jobId: "job-2", status: "queued" });
   });
 
   it("renders persisted repository details", () => {
@@ -82,7 +91,21 @@ describe("RepositoryDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Trigger initial sync" }));
 
     await waitFor(() => {
-      expect(mutateAsyncMock).toHaveBeenCalledWith("repo-1");
+      expect(triggerSyncMutateAsyncMock).toHaveBeenCalledWith("repo-1");
+    });
+  });
+
+  it("triggers memory generation", async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RepositoryDetailPage />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate memory" }));
+
+    await waitFor(() => {
+      expect(generateMemoryMutateAsyncMock).toHaveBeenCalledWith("repo-1");
     });
   });
 });
