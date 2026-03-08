@@ -143,3 +143,49 @@ func TestEnqueueRepoGenerateMemoryFailureMarksJobFailed(t *testing.T) {
 		t.Fatalf("expected failed status update, got %s", jobRepo.updated.Status)
 	}
 }
+
+func TestEnqueueRepoGenerateDigest(t *testing.T) {
+	repoID := uuid.New()
+	orgID := uuid.New()
+	userID := uuid.New()
+	jobRepo := &fakeJobRepository{}
+	client := &fakeAsynqClient{}
+	enqueuer := NewEnqueuer(jobRepo, client)
+
+	job, err := enqueuer.EnqueueRepoGenerateDigest(context.Background(), RepoGenerateDigestPayload{
+		RepositoryID:      repoID,
+		OrganizationID:    orgID,
+		TriggeredByUserID: userID,
+	})
+	if err != nil {
+		t.Fatalf("enqueue failed: %v", err)
+	}
+
+	if job.JobType != TaskRepoGenerateDigest {
+		t.Fatalf("expected job type %s, got %s", TaskRepoGenerateDigest, job.JobType)
+	}
+	if client.task == nil {
+		t.Fatal("expected asynq task to be enqueued")
+	}
+	if client.task.Type() != TaskRepoGenerateDigest {
+		t.Fatalf("expected task type %s, got %s", TaskRepoGenerateDigest, client.task.Type())
+	}
+}
+
+func TestEnqueueRepoGenerateDigestFailureMarksJobFailed(t *testing.T) {
+	jobRepo := &fakeJobRepository{}
+	client := &fakeAsynqClient{err: errors.New("redis unavailable")}
+	enqueuer := NewEnqueuer(jobRepo, client)
+
+	_, err := enqueuer.EnqueueRepoGenerateDigest(context.Background(), RepoGenerateDigestPayload{
+		RepositoryID:      uuid.New(),
+		OrganizationID:    uuid.New(),
+		TriggeredByUserID: uuid.New(),
+	})
+	if err == nil {
+		t.Fatal("expected enqueue error")
+	}
+	if jobRepo.updated.Status != StatusFailed {
+		t.Fatalf("expected failed status update, got %s", jobRepo.updated.Status)
+	}
+}

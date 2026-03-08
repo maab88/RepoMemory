@@ -20,13 +20,21 @@ func (f *fakeMembershipChecker) UserHasMembership(context.Context, db.UserHasMem
 	return f.allowed, nil
 }
 
-type fakeJobEnqueuer struct{}
+type fakeJobEnqueuer struct {
+	lastRepoID uuid.UUID
+}
 
-func (f *fakeJobEnqueuer) EnqueueRepositoryInitialSync(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (servicejobs.Job, error) {
+func (f *fakeJobEnqueuer) EnqueueRepositoryInitialSync(_ context.Context, repositoryID, _ uuid.UUID, _ uuid.UUID) (servicejobs.Job, error) {
+	f.lastRepoID = repositoryID
 	return servicejobs.Job{ID: uuid.New(), Status: "queued"}, nil
 }
 
-func (f *fakeJobEnqueuer) EnqueueRepositoryGenerateMemory(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (servicejobs.Job, error) {
+func (f *fakeJobEnqueuer) EnqueueRepositoryGenerateMemory(_ context.Context, repositoryID, _ uuid.UUID, _ uuid.UUID) (servicejobs.Job, error) {
+	f.lastRepoID = repositoryID
+	return servicejobs.Job{ID: uuid.New(), Status: "queued"}, nil
+}
+func (f *fakeJobEnqueuer) EnqueueRepositoryGenerateDigest(_ context.Context, repositoryID, _ uuid.UUID, _ uuid.UUID) (servicejobs.Job, error) {
+	f.lastRepoID = repositoryID
 	return servicejobs.Job{ID: uuid.New(), Status: "queued"}, nil
 }
 
@@ -34,6 +42,7 @@ func TestListOrganizationRepositoriesForbidden(t *testing.T) {
 	svc := NewService(
 		&repostore.RepositoryRepository{},
 		&repostore.RepositorySyncStateRepository{},
+		&repostore.DigestRepository{},
 		&fakeMembershipChecker{allowed: false},
 		&fakeJobEnqueuer{},
 	)

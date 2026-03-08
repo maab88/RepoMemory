@@ -405,7 +405,7 @@ ORDER BY
 LIMIT sqlc.arg(limit_count)
 OFFSET sqlc.arg(offset_count);
 
--- name: InsertDigest :one
+-- name: UpsertDigest :one
 INSERT INTO digests (
   organization_id,
   repository_id,
@@ -427,6 +427,13 @@ INSERT INTO digests (
   $8,
   NOW()
 )
+ON CONFLICT (repository_id, period_start, period_end)
+DO UPDATE SET
+  title = EXCLUDED.title,
+  summary = EXCLUDED.summary,
+  body_markdown = EXCLUDED.body_markdown,
+  generated_by = EXCLUDED.generated_by,
+  updated_at = NOW()
 RETURNING *;
 
 -- name: ListDigestsForRepository :many

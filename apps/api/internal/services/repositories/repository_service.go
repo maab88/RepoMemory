@@ -25,11 +25,13 @@ type MembershipChecker interface {
 type JobEnqueuer interface {
 	EnqueueRepositoryInitialSync(ctx context.Context, repositoryID, organizationID, triggeredByUserID uuid.UUID) (servicejobs.Job, error)
 	EnqueueRepositoryGenerateMemory(ctx context.Context, repositoryID, organizationID, triggeredByUserID uuid.UUID) (servicejobs.Job, error)
+	EnqueueRepositoryGenerateDigest(ctx context.Context, repositoryID, organizationID, triggeredByUserID uuid.UUID) (servicejobs.Job, error)
 }
 
 type Service struct {
 	repoRepository      *repostore.RepositoryRepository
 	syncStateRepository *repostore.RepositorySyncStateRepository
+	digestRepository    *repostore.DigestRepository
 	membershipChecker   MembershipChecker
 	jobEnqueuer         JobEnqueuer
 }
@@ -37,12 +39,14 @@ type Service struct {
 func NewService(
 	repoRepository *repostore.RepositoryRepository,
 	syncStateRepository *repostore.RepositorySyncStateRepository,
+	digestRepository *repostore.DigestRepository,
 	membershipChecker MembershipChecker,
 	jobEnqueuer JobEnqueuer,
 ) *Service {
 	return &Service{
 		repoRepository:      repoRepository,
 		syncStateRepository: syncStateRepository,
+		digestRepository:    digestRepository,
 		membershipChecker:   membershipChecker,
 		jobEnqueuer:         jobEnqueuer,
 	}
@@ -65,6 +69,18 @@ type Repository struct {
 	PullRequestCount int
 	IssueCount       int
 	MemoryEntryCount int
+}
+
+type Digest struct {
+	ID           uuid.UUID
+	RepositoryID uuid.UUID
+	PeriodStart  time.Time
+	PeriodEnd    time.Time
+	Title        string
+	Summary      string
+	BodyMarkdown string
+	GeneratedBy  string
+	CreatedAt    time.Time
 }
 
 func (s *Service) ListOrganizationRepositories(ctx context.Context, userID, organizationID uuid.UUID) ([]Repository, error) {
@@ -236,4 +252,41 @@ func (s *Service) TriggerMemoryGeneration(ctx context.Context, userID, repositor
 	}
 
 	return s.jobEnqueuer.EnqueueRepositoryGenerateMemory(ctx, repo.ID, repo.OrganizationID, userID)
+}
+
+func (s *Service) TriggerDigestGeneration(ctx context.Context, userID, repositoryID uuid.UUID) (servicejobs.Job, error) {
+	repo, err := s.GetRepository(ctx, userID, repositoryID)
+	if err != nil {
+		return servicejobs.Job{}, err
+	}
+
+	return s.jobEnqueuer.EnqueueRepositoryGenerateDigest(ctx, repo.ID, repo.OrganizationID, userID)
+}
+
+func (s *Service) ListDigests(ctx context.Context, userID, repositoryID uuid.UUID) ([]Digest, error) {
+	repo, err := s.GetRepository(ctx, userID, repositoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.digestRepository.ListByRepository(ctx, repo.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Digest, 0, len(rows))
+	for _, item := range rows {
+		out = append(out, Digest{
+			ID:           item.ID,
+			RepositoryID: item.RepositoryID,
+			PeriodStart:  item.PeriodStart.Time.UTC(),
+			PeriodEnd:    item.PeriodEnd.Time.UTC(),
+			Title:        item.Title,
+			Summary:      item.Summary,
+			BodyMarkdown: item.BodyMarkdown,
+			GeneratedBy:  item.GeneratedBy,
+			CreatedAt:    item.CreatedAt.Time.UTC(),
+		})
+	}
+	return out, nil
 }

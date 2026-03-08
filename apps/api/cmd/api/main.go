@@ -66,6 +66,7 @@ func main() {
 	jobRepository := repositories.NewJobRepository(queries)
 	repositoryRepository := repositories.NewRepositoryRepository(queries)
 	syncStateRepository := repositories.NewRepositorySyncStateRepository(queries)
+	digestRepository := repositories.NewDigestRepository(queries)
 	memoryEntryRepository := repositories.NewMemoryEntryRepository(queries)
 	memoryEntrySourceRepository := repositories.NewMemoryEntrySourceRepository(queries)
 	memorySearchRepository := repositories.NewMemorySearchRepository(queries)
@@ -83,7 +84,7 @@ func main() {
 
 	enqueuer := jobdefs.NewEnqueuer(jobRepository, asynqClient)
 	jobService := servicejobs.NewService(jobRepository, queries, queries, enqueuer)
-	repositoryService := servicerepositories.NewService(repositoryRepository, syncStateRepository, queries, jobService)
+	repositoryService := servicerepositories.NewService(repositoryRepository, syncStateRepository, digestRepository, queries, jobService)
 	memoryService := servicememory.NewQueryService(repositoryRepository, memoryEntryRepository, memoryEntrySourceRepository, queries)
 	searchService := servicesearch.NewService(queries, repositoryRepository, memorySearchRepository)
 	v1Handler := handlers.NewV1Handler(orgService, githubService, jobService, repositoryService, memoryService, searchService)

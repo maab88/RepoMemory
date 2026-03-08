@@ -57,11 +57,13 @@ type fakeRepositoryService struct {
 	listForUser  []servicerepositories.Repository
 	repositories []servicerepositories.Repository
 	repository   servicerepositories.Repository
+	digests      []servicerepositories.Digest
 	job          servicejobs.Job
 	listErr      error
 	getErr       error
 	syncErr      error
 	memoryErr    error
+	digestErr    error
 }
 
 func (f *fakeRepositoryService) ListRepositoriesForUser(_ context.Context, _ uuid.UUID) ([]servicerepositories.Repository, error) {
@@ -75,6 +77,9 @@ func (f *fakeRepositoryService) ListOrganizationRepositories(_ context.Context, 
 func (f *fakeRepositoryService) GetRepository(_ context.Context, _, _ uuid.UUID) (servicerepositories.Repository, error) {
 	return f.repository, f.getErr
 }
+func (f *fakeRepositoryService) ListDigests(_ context.Context, _, _ uuid.UUID) ([]servicerepositories.Digest, error) {
+	return f.digests, f.digestErr
+}
 
 func (f *fakeRepositoryService) TriggerInitialSync(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
 	return f.job, f.syncErr
@@ -82,6 +87,9 @@ func (f *fakeRepositoryService) TriggerInitialSync(_ context.Context, _, _ uuid.
 
 func (f *fakeRepositoryService) TriggerMemoryGeneration(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
 	return f.job, f.memoryErr
+}
+func (f *fakeRepositoryService) TriggerDigestGeneration(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
+	return f.job, f.digestErr
 }
 
 func (f *fakeGitHubOAuthService) StartConnect(_ context.Context, _ gh.OAuthStartInput) (string, error) {

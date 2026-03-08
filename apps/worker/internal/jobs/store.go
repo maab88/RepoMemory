@@ -100,6 +100,48 @@ type MemoryEntryUpsertRecord struct {
 	SourceRecordID uuid.UUID
 }
 
+type PullRequestForDigest struct {
+	ID             uuid.UUID
+	GitHubPrNumber int32
+	Title          string
+	State          string
+	AuthorLogin    string
+	HTMLURL        string
+	MergedAt       *time.Time
+}
+
+type IssueForDigest struct {
+	ID                uuid.UUID
+	GitHubIssueNumber int32
+	Title             string
+	State             string
+	AuthorLogin       string
+	HTMLURL           string
+	UpdatedAtExternal time.Time
+}
+
+type MemoryEntryForDigest struct {
+	ID            uuid.UUID
+	Type          string
+	Title         string
+	Summary       string
+	WhyItMatters  string
+	ImpactedAreas []string
+	FollowUps     []string
+	CreatedAt     time.Time
+}
+
+type DigestUpsertRecord struct {
+	OrganizationID uuid.UUID
+	RepositoryID   uuid.UUID
+	PeriodStart    time.Time
+	PeriodEnd      time.Time
+	Title          string
+	Summary        string
+	BodyMarkdown   string
+	GeneratedBy    string
+}
+
 var ErrGitHubAccountNotFound = errors.New("github account not found")
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -564,6 +606,176 @@ DO NOTHING`
 	}
 
 	return existingID, created, nil
+}
+
+func (s *Store) ListPullRequestsForDigestPeriod(ctx context.Context, repositoryID uuid.UUID, periodStart, periodEnd time.Time) ([]PullRequestForDigest, error) {
+	const query = `
+SELECT id, github_pr_number, title, state, COALESCE(author_login, ''), html_url, merged_at
+FROM pull_requests
+WHERE repository_id = $1
+  AND merged_at IS NOT NULL
+  AND merged_at >= $2
+  AND merged_at <= $3
+ORDER BY merged_at DESC, github_pr_number DESC`
+
+	rows, err := s.pool.Query(ctx, query, repositoryID, periodStart, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]PullRequestForDigest, 0)
+	for rows.Next() {
+		var item PullRequestForDigest
+		if err := rows.Scan(
+			&item.ID,
+			&item.GitHubPrNumber,
+			&item.Title,
+			&item.State,
+			&item.AuthorLogin,
+			&item.HTMLURL,
+			&item.MergedAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ListOpenIssuesForDigestPeriod(ctx context.Context, repositoryID uuid.UUID, periodEnd time.Time) ([]IssueForDigest, error) {
+	const query = `
+SELECT id, github_issue_number, title, state, COALESCE(author_login, ''), html_url, updated_at_external
+FROM issues
+WHERE repository_id = $1
+  AND state = 'open'
+  AND updated_at_external <= $2
+ORDER BY updated_at_external DESC, github_issue_number DESC
+LIMIT 20`
+
+	rows, err := s.pool.Query(ctx, query, repositoryID, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]IssueForDigest, 0)
+	for rows.Next() {
+		var item IssueForDigest
+		if err := rows.Scan(
+			&item.ID,
+			&item.GitHubIssueNumber,
+			&item.Title,
+			&item.State,
+			&item.AuthorLogin,
+			&item.HTMLURL,
+			&item.UpdatedAtExternal,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ListMemoryEntriesForDigestPeriod(ctx context.Context, repositoryID uuid.UUID, periodStart, periodEnd time.Time) ([]MemoryEntryForDigest, error) {
+	const query = `
+SELECT id, type, title, summary, COALESCE(why_it_matters, ''), impacted_areas, follow_ups, created_at
+FROM memory_entries
+WHERE repository_id = $1
+  AND created_at >= $2
+  AND created_at <= $3
+ORDER BY created_at DESC
+LIMIT 100`
+
+	rows, err := s.pool.Query(ctx, query, repositoryID, periodStart, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]MemoryEntryForDigest, 0)
+	for rows.Next() {
+		var item MemoryEntryForDigest
+		var impactedRaw []byte
+		var followUpsRaw []byte
+		if err := rows.Scan(
+			&item.ID,
+			&item.Type,
+			&item.Title,
+			&item.Summary,
+			&item.WhyItMatters,
+			&impactedRaw,
+			&followUpsRaw,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(impactedRaw, &item.ImpactedAreas); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(followUpsRaw, &item.FollowUps); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) UpsertDigestForPeriod(ctx context.Context, record DigestUpsertRecord) (uuid.UUID, bool, error) {
+	const findQuery = `
+SELECT id
+FROM digests
+WHERE repository_id = $1
+  AND period_start = $2
+  AND period_end = $3
+LIMIT 1`
+
+	var existingID uuid.UUID
+	findErr := s.pool.QueryRow(ctx, findQuery, record.RepositoryID, record.PeriodStart, record.PeriodEnd).Scan(&existingID)
+	created := errors.Is(findErr, pgx.ErrNoRows)
+	if findErr != nil && !created {
+		return uuid.Nil, false, findErr
+	}
+
+	const upsertQuery = `
+INSERT INTO digests (
+  organization_id,
+  repository_id,
+  period_start,
+  period_end,
+  title,
+  summary,
+  body_markdown,
+  generated_by,
+  updated_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, NOW()
+)
+ON CONFLICT (repository_id, period_start, period_end)
+DO UPDATE SET
+  title = EXCLUDED.title,
+  summary = EXCLUDED.summary,
+  body_markdown = EXCLUDED.body_markdown,
+  generated_by = EXCLUDED.generated_by,
+  updated_at = NOW()
+RETURNING id`
+
+	var digestID uuid.UUID
+	if err := s.pool.QueryRow(ctx, upsertQuery,
+		record.OrganizationID,
+		record.RepositoryID,
+		record.PeriodStart,
+		record.PeriodEnd,
+		record.Title,
+		record.Summary,
+		record.BodyMarkdown,
+		record.GeneratedBy,
+	).Scan(&digestID); err != nil {
+		return uuid.Nil, false, err
+	}
+
+	return digestID, created, nil
 }
 
 func nullIfEmpty(value string) any {
