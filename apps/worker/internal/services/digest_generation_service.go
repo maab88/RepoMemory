@@ -25,13 +25,17 @@ type DigestGenerationResult struct {
 	PeriodEnd    time.Time
 }
 
+type DigestBuilder interface {
+	Build(input DigestBuildInput) DigestDraft
+}
+
 type DigestGenerationService struct {
 	store   DigestGenerationStore
-	builder *DeterministicDigestBuilder
+	builder DigestBuilder
 	nowFn   func() time.Time
 }
 
-func NewDigestGenerationService(store DigestGenerationStore, builder *DeterministicDigestBuilder) *DigestGenerationService {
+func NewDigestGenerationService(store DigestGenerationStore, builder DigestBuilder) *DigestGenerationService {
 	return &DigestGenerationService{
 		store:   store,
 		builder: builder,
