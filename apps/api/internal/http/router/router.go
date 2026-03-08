@@ -31,6 +31,8 @@ func New(deps Dependencies) http.Handler {
 		r.Get("/repositories", deps.V1Handler.ListRepositories)
 		r.Get("/repositories/{repoId}", deps.V1Handler.GetRepository)
 		r.Post("/repositories/{repoId}/sync", deps.V1Handler.TriggerRepositorySync)
+		r.Get("/repositories/{repoId}/memory", deps.V1Handler.ListRepositoryMemory)
+		r.Get("/repositories/{repoId}/memory/{memoryId}", deps.V1Handler.GetRepositoryMemoryDetail)
 	})
 
 	return r

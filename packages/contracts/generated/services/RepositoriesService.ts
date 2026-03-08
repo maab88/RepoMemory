@@ -2,6 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { MemoryEntryDetailResponse } from '../models/MemoryEntryDetailResponse';
+import type { MemoryEntryListResponse } from '../models/MemoryEntryListResponse';
 import type { OrganizationRepositoriesResponse } from '../models/OrganizationRepositoriesResponse';
 import type { RepositoryDetailResponse } from '../models/RepositoryDetailResponse';
 import type { RepositoryListResponse } from '../models/RepositoryListResponse';
@@ -86,6 +88,57 @@ export class RepositoriesService {
             url: '/v1/repositories/{repoId}/sync',
             path: {
                 'repoId': repoId,
+            },
+            errors: {
+                400: `Invalid request payload or parameters`,
+                401: `Missing or invalid auth headers`,
+                403: `Authenticated user is not allowed to access this resource`,
+                404: `Resource not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * List memory entries for a repository
+     * @param repoId Repository identifier
+     * @returns MemoryEntryListResponse Repository memory entries
+     * @throws ApiError
+     */
+    public static listRepositoryMemory(
+        repoId: string,
+    ): CancelablePromise<MemoryEntryListResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/repositories/{repoId}/memory',
+            path: {
+                'repoId': repoId,
+            },
+            errors: {
+                400: `Invalid request payload or parameters`,
+                401: `Missing or invalid auth headers`,
+                403: `Authenticated user is not allowed to access this resource`,
+                404: `Resource not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get one repository memory entry detail
+     * @param repoId Repository identifier
+     * @param memoryId Memory entry identifier
+     * @returns MemoryEntryDetailResponse Repository memory entry detail
+     * @throws ApiError
+     */
+    public static getRepositoryMemoryDetail(
+        repoId: string,
+        memoryId: string,
+    ): CancelablePromise<MemoryEntryDetailResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/repositories/{repoId}/memory/{memoryId}',
+            path: {
+                'repoId': repoId,
+                'memoryId': memoryId,
             },
             errors: {
                 400: `Invalid request payload or parameters`,

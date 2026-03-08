@@ -15,6 +15,7 @@ import (
 	"github.com/maab88/repomemory/apps/api/internal/http/response"
 	"github.com/maab88/repomemory/apps/api/internal/org"
 	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
+	servicememory "github.com/maab88/repomemory/apps/api/internal/services/memory"
 	servicerepositories "github.com/maab88/repomemory/apps/api/internal/services/repositories"
 )
 
@@ -29,6 +30,7 @@ type V1Handler struct {
 	githubService     GitHubService
 	jobService        JobService
 	repositoryService RepositoryService
+	memoryService     MemoryService
 }
 
 func NewV1Handler(
@@ -36,12 +38,14 @@ func NewV1Handler(
 	githubService GitHubService,
 	jobService JobService,
 	repositoryService RepositoryService,
+	memoryService MemoryService,
 ) *V1Handler {
 	return &V1Handler{
 		orgService:        orgService,
 		githubService:     githubService,
 		jobService:        jobService,
 		repositoryService: repositoryService,
+		memoryService:     memoryService,
 	}
 }
 
@@ -61,6 +65,11 @@ type RepositoryService interface {
 	ListOrganizationRepositories(ctx context.Context, userID, organizationID uuid.UUID) ([]servicerepositories.Repository, error)
 	GetRepository(ctx context.Context, userID, repositoryID uuid.UUID) (servicerepositories.Repository, error)
 	TriggerInitialSync(ctx context.Context, userID, repositoryID uuid.UUID) (servicejobs.Job, error)
+}
+
+type MemoryService interface {
+	ListRepositoryMemory(ctx context.Context, userID, repositoryID uuid.UUID) ([]servicememory.MemoryEntry, error)
+	GetRepositoryMemoryEntry(ctx context.Context, userID, repositoryID, memoryID uuid.UUID) (servicememory.MemoryEntry, error)
 }
 
 type meResponse struct {

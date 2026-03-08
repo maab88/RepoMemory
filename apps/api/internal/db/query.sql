@@ -342,6 +342,37 @@ WHERE repository_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
+-- name: ListMemoryEntriesByRepository :many
+SELECT *
+FROM memory_entries
+WHERE repository_id = $1
+ORDER BY created_at DESC;
+
+-- name: GetMemoryEntryByIDAndRepository :one
+SELECT *
+FROM memory_entries
+WHERE id = $1
+  AND repository_id = $2;
+
+-- name: ListMemoryEntrySourcesByMemoryEntryID :many
+SELECT
+  mes.source_type,
+  mes.source_record_id,
+  CASE
+    WHEN mes.source_type = 'pull_request' THEN pr.html_url
+    WHEN mes.source_type = 'issue' THEN i.html_url
+    ELSE ''
+  END AS source_url
+FROM memory_entry_sources mes
+LEFT JOIN pull_requests pr
+  ON mes.source_type = 'pull_request'
+ AND mes.source_record_id = pr.id
+LEFT JOIN issues i
+  ON mes.source_type = 'issue'
+ AND mes.source_record_id = i.id
+WHERE mes.memory_entry_id = $1
+ORDER BY mes.created_at ASC;
+
 -- name: InsertDigest :one
 INSERT INTO digests (
   organization_id,
