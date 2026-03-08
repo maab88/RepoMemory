@@ -1,21 +1,24 @@
-﻿import { apiRequest } from "@/lib/api-client";
-import { CurrentUser, Organization } from "@/lib/types";
+import {
+  IdentityService,
+  OrganizationsService,
+  type CreateOrganizationRequest,
+  type Organization,
+  type User,
+} from "@repomemory/contracts";
+import { unwrapData } from "@/lib/api-client";
 
-export function getCurrentUser(): Promise<CurrentUser> {
-  return apiRequest<CurrentUser>("/me", { method: "GET" });
+export function getCurrentUser(): Promise<User> {
+  return unwrapData(IdentityService.getMe());
 }
 
 export function listOrganizations(): Promise<Organization[]> {
-  return apiRequest<Organization[]>("/organizations", { method: "GET" });
+  return unwrapData(OrganizationsService.listOrganizations());
 }
 
-export function createOrganization(input: { name: string }): Promise<Organization> {
-  return apiRequest<Organization>("/organizations", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+export function createOrganization(input: CreateOrganizationRequest): Promise<Organization> {
+  return unwrapData(OrganizationsService.createOrganization(input));
 }
 
 export function getOrganization(orgId: string): Promise<Organization> {
-  return apiRequest<Organization>(`/organizations/${orgId}`, { method: "GET" });
+  return unwrapData(OrganizationsService.getOrganization(orgId));
 }

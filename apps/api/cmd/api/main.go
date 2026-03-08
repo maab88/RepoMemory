@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"github.com/maab88/repomemory/apps/api/internal/auth"
 	"github.com/maab88/repomemory/apps/api/internal/config"
 	"github.com/maab88/repomemory/apps/api/internal/db"
@@ -21,6 +22,8 @@ import (
 )
 
 func main() {
+	_ = godotenv.Load(".env", "apps/api/.env")
+
 	cfg := config.Load()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 

@@ -1,4 +1,12 @@
-﻿import { ApiEnvelope } from "@/lib/types";
+import {
+  ApiError as GeneratedApiError,
+  OpenAPI,
+  type ErrorResponse,
+} from "@repomemory/contracts";
+
+OpenAPI.BASE = "/api";
+OpenAPI.CREDENTIALS = "same-origin";
+OpenAPI.WITH_CREDENTIALS = false;
 
 export class RequestError extends Error {
   constructor(
@@ -10,31 +18,43 @@ export class RequestError extends Error {
   }
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const payload = (await response.json()) as ApiEnvelope<T>;
-
-  if (!response.ok || payload.error) {
-    const code = payload.error?.code ?? "request_failed";
-    const message = payload.error?.message ?? `request failed with status ${response.status}`;
-    throw new RequestError(response.status, code, message);
+function isErrorResponse(value: unknown): value is ErrorResponse {
+  if (typeof value !== "object" || value === null) {
+    return false;
   }
 
-  if (!payload.data) {
-    throw new RequestError(response.status, "invalid_response", "missing response data");
+  const maybe = value as { error?: unknown };
+  if (typeof maybe.error !== "object" || maybe.error === null) {
+    return false;
   }
 
-  return payload.data;
+  const apiError = maybe.error as { code?: unknown; message?: unknown };
+  return typeof apiError.code === "string" && typeof apiError.message === "string";
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/v1${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-    cache: "no-store",
-  });
+function toRequestError(error: unknown): RequestError {
+  if (error instanceof GeneratedApiError) {
+    if (isErrorResponse(error.body)) {
+      return new RequestError(error.status, error.body.error.code, error.body.error.message);
+    }
 
-  return parseResponse<T>(response);
+    return new RequestError(error.status, "request_failed", error.message);
+  }
+
+  if (error instanceof Error) {
+    return new RequestError(500, "request_failed", error.message);
+  }
+
+  return new RequestError(500, "request_failed", "request failed");
+}
+
+type WithData<T> = { data: T };
+
+export async function unwrapData<T>(request: Promise<WithData<T>>): Promise<T> {
+  try {
+    const payload = await request;
+    return payload.data;
+  } catch (error) {
+    throw toRequestError(error);
+  }
 }

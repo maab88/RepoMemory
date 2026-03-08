@@ -1,0 +1,272 @@
+openapi: 3.0.3
+info:
+  title: RepoMemory API
+  version: 0.2.0
+  description: Contract for currently implemented RepoMemory API endpoints.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Health
+  - name: Identity
+  - name: Organizations
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      operationId: getHealth
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy API response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /v1/me:
+    get:
+      tags:
+        - Identity
+      operationId: getMe
+      summary: Get current authenticated user
+      security:
+        - MockUserHeader: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/organizations:
+    get:
+      tags:
+        - Organizations
+      operationId: listOrganizations
+      summary: List organizations accessible by current user
+      security:
+        - MockUserHeader: []
+      responses:
+        "200":
+          description: Organizations for the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags:
+        - Organizations
+      operationId: createOrganization
+      summary: Create organization and owner membership for current user
+      security:
+        - MockUserHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrganizationRequest"
+      responses:
+        "201":
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/organizations/{orgId}:
+    get:
+      tags:
+        - Organizations
+      operationId: getOrganization
+      summary: Get organization detail for current user
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: Organization identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Organization detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  securitySchemes:
+    MockUserHeader:
+      type: apiKey
+      in: header
+      name: x-user-id
+      description: Required mock auth user identifier.
+  responses:
+    BadRequestError:
+      description: Invalid request payload or parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    UnauthorizedError:
+      description: Missing or invalid auth headers
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ForbiddenError:
+      description: Authenticated user is not allowed to access this resource
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ConflictError:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: api
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-03-06T15:04:05Z
+    ErrorDetail:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: unauthorized
+        message:
+          type: string
+          example: missing x-user-id header
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+    User:
+      type: object
+      required:
+        - id
+        - displayName
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+    Organization:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        role:
+          type: string
+          enum:
+            - owner
+            - member
+    CreateOrganizationRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 80
+    MeResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/User"
+    OrganizationListResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Organization"
+    OrganizationResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Organization"

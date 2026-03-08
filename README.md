@@ -6,7 +6,7 @@ RepoMemory is a SaaS MVP that turns GitHub engineering activity into searchable 
 - `apps/web`: Next.js App Router frontend
 - `apps/api`: Go REST API (chi) + sqlc query layer
 - `apps/worker`: Go background worker (Asynq)
-- `packages/contracts`: OpenAPI source + generated TS client placeholder
+- `packages/contracts`: OpenAPI source + generated TS client
 - `infra/migrations`: SQL migrations
 - `docs`: architecture, conventions, testing strategy, and ERD
 
@@ -32,7 +32,7 @@ RepoMemory is a SaaS MVP that turns GitHub engineering activity into searchable 
 ## Services
 - Web: http://localhost:3000
 - API health: http://localhost:8080/health
-- Postgres: localhost:5432
+- Postgres: localhost:55432
 - Redis: localhost:6379
 
 ## Quality Commands
@@ -43,15 +43,26 @@ RepoMemory is a SaaS MVP that turns GitHub engineering activity into searchable 
 - `make lint`: run Go + web lint
 - `make format`: run Go + web formatters
 - `make ci`: run lint + test
+- `make generate-contracts`: regenerate TypeScript client from OpenAPI contract
 
 ## Data Layer Commands
 - Apply schema migration locally:
   - `Get-Content infra/migrations/0001_v1_schema.up.sql | docker compose --env-file .env exec -T postgres psql -U postgres -d repomemory`
 - Generate sqlc code:
   - `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.28.0 generate -f apps/api/sqlc.yaml`
+- Generate OpenAPI TypeScript client:
+  - `make generate-contracts`
 - Run DB integration tests:
   - `cd apps/api && go test ./...`
   - Optional override: set `TEST_DATABASE_URL`
+
+## API Contract Workflow
+- Source of truth: `packages/contracts/openapi.yaml`
+- Generated client output: `packages/contracts/generated`
+- Keep spec and implementation aligned in the same change:
+  - update API handlers/DTOs and OpenAPI spec together
+  - regenerate client
+  - run API + web tests before merge
 
 ## Docs
 - `docs/architecture.md`
@@ -80,4 +91,4 @@ RepoMemory is a SaaS MVP that turns GitHub engineering activity into searchable 
 
 ### API tests
 - `TEST_DATABASE_URL` (optional): Postgres connection string for integration tests.
-  - Default: `postgres://postgres:postgres@localhost:5432/repomemory?sslmode=disable`
+  - Default: `postgres://postgres:postgres@127.0.0.1:55432/repomemory?sslmode=disable`

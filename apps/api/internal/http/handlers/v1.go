@@ -34,6 +34,30 @@ type meResponse struct {
 	AvatarURL   string    `json:"avatarUrl,omitempty"`
 }
 
+type organizationResponse struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Slug string    `json:"slug"`
+	Role string    `json:"role"`
+}
+
+func toOrganizationResponse(value org.OrganizationWithRole) organizationResponse {
+	return organizationResponse{
+		ID:   value.ID,
+		Name: value.Name,
+		Slug: value.Slug,
+		Role: value.Role,
+	}
+}
+
+func toOrganizationResponseList(value []org.OrganizationWithRole) []organizationResponse {
+	out := make([]organizationResponse, 0, len(value))
+	for _, item := range value {
+		out = append(out, toOrganizationResponse(item))
+	}
+	return out
+}
+
 func (h *V1Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 	currentUser, ok := auth.CurrentUserFromContext(r.Context())
 	if !ok {
@@ -62,7 +86,7 @@ func (h *V1Handler) ListOrganizations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteData(w, http.StatusOK, orgs)
+	response.WriteData(w, http.StatusOK, toOrganizationResponseList(orgs))
 }
 
 type createOrganizationRequest struct {
@@ -95,7 +119,7 @@ func (h *V1Handler) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteData(w, http.StatusCreated, created)
+	response.WriteData(w, http.StatusCreated, toOrganizationResponse(created))
 }
 
 func (h *V1Handler) GetOrganization(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +129,7 @@ func (h *V1Handler) GetOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orgIDRaw := chi.URLParam(r, "orgID")
+	orgIDRaw := chi.URLParam(r, "orgId")
 	orgID, err := uuid.Parse(orgIDRaw)
 	if err != nil {
 		response.WriteError(w, http.StatusBadRequest, "bad_request", "invalid organization id")
@@ -125,5 +149,5 @@ func (h *V1Handler) GetOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteData(w, http.StatusOK, orgData)
+	response.WriteData(w, http.StatusOK, toOrganizationResponse(orgData))
 }

@@ -1,0 +1,17 @@
+{
+  "name": "@repomemory/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./generated/index.ts"
+  },
+  "types": "./generated/index.ts",
+  "scripts": {
+    "generate": "node -e \"import('node:fs').then(fs => fs.rmSync('./generated', { recursive: true, force: true }))\" && openapi --input ./openapi.yaml --output ./generated --client fetch --exportCore true --exportServices true --exportModels true --useUnionTypes true",
+    "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('./generated', { recursive: true, force: true }))\""
+  },
+  "devDependencies": {
+    "openapi-typescript-codegen": "0.29.0"
+  }
+}

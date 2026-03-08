@@ -1,7 +1,7 @@
 COMPOSE_FILE=docker-compose.yml
 GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
-.PHONY: up down logs test test-web test-api test-worker lint lint-web lint-go format format-web format-go ci dev-web dev-api dev-worker
+.PHONY: up down logs test test-web test-api test-worker lint lint-web lint-go format format-web format-go ci dev-web dev-api dev-worker generate-contracts
 
 up:
 	docker compose --env-file .env up -d
@@ -51,3 +51,6 @@ dev-api:
 
 dev-worker:
 	cd apps/worker && go run ./cmd/worker
+
+generate-contracts:
+	corepack pnpm --dir packages/contracts generate

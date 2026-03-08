@@ -21,7 +21,7 @@ func New(deps Dependencies) http.Handler {
 		r.Get("/me", deps.V1Handler.GetMe)
 		r.Get("/organizations", deps.V1Handler.ListOrganizations)
 		r.Post("/organizations", deps.V1Handler.CreateOrganization)
-		r.Get("/organizations/{orgID}", deps.V1Handler.GetOrganization)
+		r.Get("/organizations/{orgId}", deps.V1Handler.GetOrganization)
 	})
 
 	return r

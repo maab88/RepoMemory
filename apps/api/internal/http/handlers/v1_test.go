@@ -49,6 +49,7 @@ func newTestRouter(orgSvc OrganizationService) http.Handler {
 		r.Get("/me", h.GetMe)
 		r.Get("/organizations", h.ListOrganizations)
 		r.Post("/organizations", h.CreateOrganization)
+		r.Get("/organizations/{orgId}", h.GetOrganization)
 	})
 	return r
 }
@@ -122,6 +123,49 @@ func TestPostOrganizationsBadPayload(t *testing.T) {
 	router := newTestRouter(&fakeOrgService{})
 	body := bytes.NewBufferString(`{`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/organizations", body)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestGetOrganizationSuccess(t *testing.T) {
+	orgID := uuid.New()
+	router := newTestRouter(&fakeOrgService{getResult: org.OrganizationWithRole{ID: orgID, Name: "Acme", Slug: "acme", Role: "owner"}})
+	req := httptest.NewRequest(http.MethodGet, "/v1/organizations/"+orgID.String(), nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var payload struct {
+		Data struct {
+			ID   uuid.UUID `json:"id"`
+			Name string    `json:"name"`
+			Slug string    `json:"slug"`
+			Role string    `json:"role"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+
+	if payload.Data.ID != orgID || payload.Data.Name != "Acme" || payload.Data.Slug != "acme" || payload.Data.Role != "owner" {
+		t.Fatalf("unexpected organization payload: %+v", payload.Data)
+	}
+}
+
+func TestGetOrganizationBadID(t *testing.T) {
+	router := newTestRouter(&fakeOrgService{})
+	req := httptest.NewRequest(http.MethodGet, "/v1/organizations/not-a-uuid", nil)
 	req.Header.Set("x-user-id", "user-1")
 	rr := httptest.NewRecorder()
 
