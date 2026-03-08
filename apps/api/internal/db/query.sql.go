@@ -125,6 +125,42 @@ func (q *Queries) GetLatestGithubAccountForUser(ctx context.Context, userID uuid
 	return i, err
 }
 
+const getMemoryEntryByIDAndRepository = `-- name: GetMemoryEntryByIDAndRepository :one
+SELECT id, organization_id, repository_id, type, title, summary, why_it_matters, impacted_areas, risks, follow_ups, source_kind, source_id, source_url, generated_by, created_at, updated_at
+FROM memory_entries
+WHERE id = $1
+  AND repository_id = $2
+`
+
+type GetMemoryEntryByIDAndRepositoryParams struct {
+	ID           uuid.UUID `json:"id"`
+	RepositoryID uuid.UUID `json:"repository_id"`
+}
+
+func (q *Queries) GetMemoryEntryByIDAndRepository(ctx context.Context, arg GetMemoryEntryByIDAndRepositoryParams) (MemoryEntry, error) {
+	row := q.db.QueryRow(ctx, getMemoryEntryByIDAndRepository, arg.ID, arg.RepositoryID)
+	var i MemoryEntry
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.RepositoryID,
+		&i.Type,
+		&i.Title,
+		&i.Summary,
+		&i.WhyItMatters,
+		&i.ImpactedAreas,
+		&i.Risks,
+		&i.FollowUps,
+		&i.SourceKind,
+		&i.SourceID,
+		&i.SourceUrl,
+		&i.GeneratedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getOrganizationByID = `-- name: GetOrganizationByID :one
 SELECT id, name, slug, created_at, updated_at
 FROM organizations
@@ -587,6 +623,50 @@ func (q *Queries) ListDigestsForRepository(ctx context.Context, repositoryID uui
 	return items, nil
 }
 
+const listMemoryEntriesByRepository = `-- name: ListMemoryEntriesByRepository :many
+SELECT id, organization_id, repository_id, type, title, summary, why_it_matters, impacted_areas, risks, follow_ups, source_kind, source_id, source_url, generated_by, created_at, updated_at
+FROM memory_entries
+WHERE repository_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListMemoryEntriesByRepository(ctx context.Context, repositoryID uuid.UUID) ([]MemoryEntry, error) {
+	rows, err := q.db.Query(ctx, listMemoryEntriesByRepository, repositoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []MemoryEntry{}
+	for rows.Next() {
+		var i MemoryEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.RepositoryID,
+			&i.Type,
+			&i.Title,
+			&i.Summary,
+			&i.WhyItMatters,
+			&i.ImpactedAreas,
+			&i.Risks,
+			&i.FollowUps,
+			&i.SourceKind,
+			&i.SourceID,
+			&i.SourceUrl,
+			&i.GeneratedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMemoryEntriesForRepository = `-- name: ListMemoryEntriesForRepository :many
 SELECT id, organization_id, repository_id, type, title, summary, why_it_matters, impacted_areas, risks, follow_ups, source_kind, source_id, source_url, generated_by, created_at, updated_at
 FROM memory_entries
@@ -628,6 +708,52 @@ func (q *Queries) ListMemoryEntriesForRepository(ctx context.Context, arg ListMe
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMemoryEntrySourcesByMemoryEntryID = `-- name: ListMemoryEntrySourcesByMemoryEntryID :many
+SELECT
+  mes.source_type,
+  mes.source_record_id,
+  CASE
+    WHEN mes.source_type = 'pull_request' THEN pr.html_url
+    WHEN mes.source_type = 'issue' THEN i.html_url
+    ELSE ''
+  END AS source_url
+FROM memory_entry_sources mes
+LEFT JOIN pull_requests pr
+  ON mes.source_type = 'pull_request'
+ AND mes.source_record_id = pr.id
+LEFT JOIN issues i
+  ON mes.source_type = 'issue'
+ AND mes.source_record_id = i.id
+WHERE mes.memory_entry_id = $1
+ORDER BY mes.created_at ASC
+`
+
+type ListMemoryEntrySourcesByMemoryEntryIDRow struct {
+	SourceType     string    `json:"source_type"`
+	SourceRecordID uuid.UUID `json:"source_record_id"`
+	SourceUrl      string    `json:"source_url"`
+}
+
+func (q *Queries) ListMemoryEntrySourcesByMemoryEntryID(ctx context.Context, memoryEntryID uuid.UUID) ([]ListMemoryEntrySourcesByMemoryEntryIDRow, error) {
+	rows, err := q.db.Query(ctx, listMemoryEntrySourcesByMemoryEntryID, memoryEntryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMemoryEntrySourcesByMemoryEntryIDRow{}
+	for rows.Next() {
+		var i ListMemoryEntrySourcesByMemoryEntryIDRow
+		if err := rows.Scan(&i.SourceType, &i.SourceRecordID, &i.SourceUrl); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

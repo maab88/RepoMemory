@@ -113,7 +113,7 @@ func newTestRouter(orgSvc OrganizationService) http.Handler {
 }
 
 func newTestRouterWithGitHub(orgSvc OrganizationService, githubSvc GitHubService) http.Handler {
-	h := NewV1Handler(orgSvc, githubSvc, &fakeJobService{}, &fakeRepositoryService{})
+	h := NewV1Handler(orgSvc, githubSvc, &fakeJobService{}, &fakeRepositoryService{}, &noopMemoryService{})
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(auth.RequireMockAuth(fakeResolver{}))

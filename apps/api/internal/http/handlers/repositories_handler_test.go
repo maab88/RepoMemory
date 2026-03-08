@@ -52,7 +52,7 @@ func TestListOrganizationRepositoriesReturnsPersistedRows(t *testing.T) {
 			},
 		},
 	}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc)
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -92,7 +92,7 @@ func TestListRepositoriesReturnsPersistedValues(t *testing.T) {
 			},
 		},
 	}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc)
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -121,7 +121,7 @@ func TestTriggerRepositorySyncReturnsJobID(t *testing.T) {
 			UpdatedAt: time.Now().UTC(),
 		},
 	}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc)
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -141,7 +141,7 @@ func TestTriggerRepositorySyncReturnsJobID(t *testing.T) {
 
 func TestListOrganizationRepositoriesForbidden(t *testing.T) {
 	repoSvc := &fakeRepositoryQueryService{listErr: servicerepositories.ErrRepositoryForbidden}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc)
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
@@ -161,7 +161,7 @@ func TestListOrganizationRepositoriesForbidden(t *testing.T) {
 
 func TestGetRepositoryDetailNotFound(t *testing.T) {
 	repoSvc := &fakeRepositoryQueryService{repoErr: servicerepositories.ErrRepositoryNotFound}
-	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc)
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc, &noopMemoryService{})
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -59,6 +60,9 @@ export default function RepositoryDetailPage() {
               <a href={repoQuery.data.repository.htmlUrl} target="_blank" rel="noreferrer" className="text-sm font-medium text-slate-600 hover:text-slate-900">
                 View on GitHub
               </a>
+              <Link href={`/repositories/${params.repoId}/memory`} className="text-sm font-medium text-slate-600 underline decoration-slate-300 hover:text-slate-900">
+                Open memory timeline
+              </Link>
             </div>
           </article>
 

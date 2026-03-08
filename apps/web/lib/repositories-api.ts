@@ -2,6 +2,8 @@ import {
   JobsService,
   RepositoriesService,
   type JobResponseData,
+  type MemoryEntryDetailData,
+  type MemoryEntryListData,
   type RepositoryListData,
   type OrganizationRepositoriesData,
   type RepositoryDetailData,
@@ -28,4 +30,12 @@ export function triggerRepositorySync(repoId: string): Promise<TriggerSyncData> 
 
 export function getJob(jobId: string): Promise<JobResponseData> {
   return unwrapData(JobsService.getJob(jobId));
+}
+
+export function listRepositoryMemory(repoId: string): Promise<MemoryEntryListData> {
+  return unwrapData(RepositoriesService.listRepositoryMemory(repoId));
+}
+
+export function getRepositoryMemoryDetail(repoId: string, memoryId: string): Promise<MemoryEntryDetailData> {
+  return unwrapData(RepositoriesService.getRepositoryMemoryDetail(repoId, memoryId));
 }

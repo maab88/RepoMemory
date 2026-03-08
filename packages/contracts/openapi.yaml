@@ -391,6 +391,79 @@ paths:
           $ref: "#/components/responses/NotFoundError"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/repositories/{repoId}/memory:
+    get:
+      tags:
+        - Repositories
+      operationId: listRepositoryMemory
+      summary: List memory entries for a repository
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: repoId
+          in: path
+          required: true
+          description: Repository identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Repository memory entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryEntryListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/repositories/{repoId}/memory/{memoryId}:
+    get:
+      tags:
+        - Repositories
+      operationId: getRepositoryMemoryDetail
+      summary: Get one repository memory entry detail
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: repoId
+          in: path
+          required: true
+          description: Repository identifier
+          schema:
+            type: string
+            format: uuid
+        - name: memoryId
+          in: path
+          required: true
+          description: Memory entry identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Repository memory entry detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryEntryDetailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MockUserHeader:
@@ -845,6 +918,98 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RepositorySummary"
+    MemoryEntry:
+      type: object
+      required:
+        - id
+        - repositoryId
+        - organizationId
+        - type
+        - title
+        - summary
+        - impactedAreas
+        - risks
+        - followUps
+        - generatedBy
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        repositoryId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        whyItMatters:
+          type: string
+        impactedAreas:
+          type: array
+          items:
+            type: string
+        risks:
+          type: array
+          items:
+            type: string
+        followUps:
+          type: array
+          items:
+            type: string
+        generatedBy:
+          type: string
+        sourceUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+    MemorySource:
+      type: object
+      required:
+        - sourceType
+        - displayLabel
+      properties:
+        sourceType:
+          type: string
+        sourceUrl:
+          type: string
+          format: uri
+        displayLabel:
+          type: string
+    MemoryEntryDetail:
+      allOf:
+        - $ref: "#/components/schemas/MemoryEntry"
+        - type: object
+          required:
+            - sources
+          properties:
+            sources:
+              type: array
+              items:
+                $ref: "#/components/schemas/MemorySource"
+    MemoryEntryListData:
+      type: object
+      required:
+        - memoryEntries
+      properties:
+        memoryEntries:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryEntry"
+    MemoryEntryDetailData:
+      type: object
+      required:
+        - memoryEntry
+      properties:
+        memoryEntry:
+          $ref: "#/components/schemas/MemoryEntryDetail"
     MeResponse:
       type: object
       required:
@@ -931,3 +1096,17 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/RepositoryListData"
+    MemoryEntryListResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/MemoryEntryListData"
+    MemoryEntryDetailResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/MemoryEntryDetailData"
