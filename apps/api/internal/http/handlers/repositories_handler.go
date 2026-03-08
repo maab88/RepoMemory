@@ -50,6 +50,33 @@ func (h *V1Handler) ListOrganizationRepositories(w http.ResponseWriter, r *http.
 	})
 }
 
+func (h *V1Handler) ListRepositories(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := auth.CurrentUserFromContext(r.Context())
+	if !ok {
+		response.WriteError(w, http.StatusUnauthorized, "unauthorized", "missing current user")
+		return
+	}
+	if h.repositoryService == nil {
+		response.WriteError(w, http.StatusServiceUnavailable, "service_unavailable", "repository service is not configured")
+		return
+	}
+
+	repos, err := h.repositoryService.ListRepositoriesForUser(r.Context(), currentUser.ID)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, "internal_error", "failed to list repositories")
+		return
+	}
+
+	items := make([]dto.RepositoryDTO, 0, len(repos))
+	for _, repo := range repos {
+		items = append(items, dto.ToRepositoryDTO(repo))
+	}
+
+	response.WriteData(w, http.StatusOK, map[string]any{
+		"repositories": items,
+	})
+}
+
 func (h *V1Handler) GetRepository(w http.ResponseWriter, r *http.Request) {
 	currentUser, ok := auth.CurrentUserFromContext(r.Context())
 	if !ok {

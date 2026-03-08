@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { OrganizationRepositoriesResponse } from '../models/OrganizationRepositoriesResponse';
 import type { RepositoryDetailResponse } from '../models/RepositoryDetailResponse';
+import type { RepositoryListResponse } from '../models/RepositoryListResponse';
 import type { TriggerSyncResponse } from '../models/TriggerSyncResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
@@ -28,6 +29,21 @@ export class RepositoriesService {
                 400: `Invalid request payload or parameters`,
                 401: `Missing or invalid auth headers`,
                 403: `Authenticated user is not allowed to access this resource`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * List imported repositories for current user
+     * @returns RepositoryListResponse Imported repositories
+     * @throws ApiError
+     */
+    public static listRepositories(): CancelablePromise<RepositoryListResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/repositories',
+            errors: {
+                401: `Missing or invalid auth headers`,
                 500: `Internal server error`,
             },
         });

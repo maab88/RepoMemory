@@ -1,4 +1,5 @@
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import RepositoryDetailPage from "@/app/repositories/[repoId]/page";
@@ -61,13 +62,23 @@ describe("RepositoryDetailPage", () => {
   });
 
   it("renders persisted repository details", () => {
-    render(<RepositoryDetailPage />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RepositoryDetailPage />
+      </QueryClientProvider>
+    );
     expect(screen.getByText("octocat/repo-memory")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Trigger initial sync" })).toBeInTheDocument();
+    expect(screen.getByText("Pull requests")).toBeInTheDocument();
+    expect(screen.getByText("Issues")).toBeInTheDocument();
   });
 
   it("triggers sync and requests job status", async () => {
-    render(<RepositoryDetailPage />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RepositoryDetailPage />
+      </QueryClientProvider>
+    );
     fireEvent.click(screen.getByRole("button", { name: "Trigger initial sync" }));
 
     await waitFor(() => {
