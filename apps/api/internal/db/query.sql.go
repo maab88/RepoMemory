@@ -323,70 +323,6 @@ func (q *Queries) InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) 
 	return i, err
 }
 
-const insertDigest = `-- name: InsertDigest :one
-INSERT INTO digests (
-  organization_id,
-  repository_id,
-  period_start,
-  period_end,
-  title,
-  summary,
-  body_markdown,
-  generated_by,
-  updated_at
-) VALUES (
-  $1,
-  $2,
-  $3,
-  $4,
-  $5,
-  $6,
-  $7,
-  $8,
-  NOW()
-)
-RETURNING id, organization_id, repository_id, period_start, period_end, title, summary, body_markdown, generated_by, created_at, updated_at
-`
-
-type InsertDigestParams struct {
-	OrganizationID uuid.UUID          `json:"organization_id"`
-	RepositoryID   uuid.UUID          `json:"repository_id"`
-	PeriodStart    pgtype.Timestamptz `json:"period_start"`
-	PeriodEnd      pgtype.Timestamptz `json:"period_end"`
-	Title          string             `json:"title"`
-	Summary        string             `json:"summary"`
-	BodyMarkdown   string             `json:"body_markdown"`
-	GeneratedBy    string             `json:"generated_by"`
-}
-
-func (q *Queries) InsertDigest(ctx context.Context, arg InsertDigestParams) (Digest, error) {
-	row := q.db.QueryRow(ctx, insertDigest,
-		arg.OrganizationID,
-		arg.RepositoryID,
-		arg.PeriodStart,
-		arg.PeriodEnd,
-		arg.Title,
-		arg.Summary,
-		arg.BodyMarkdown,
-		arg.GeneratedBy,
-	)
-	var i Digest
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.RepositoryID,
-		&i.PeriodStart,
-		&i.PeriodEnd,
-		&i.Title,
-		&i.Summary,
-		&i.BodyMarkdown,
-		&i.GeneratedBy,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const insertJob = `-- name: InsertJob :one
 INSERT INTO jobs (
   organization_id,
@@ -1208,6 +1144,77 @@ func (q *Queries) UpdateJobStatus(ctx context.Context, arg UpdateJobStatusParams
 		&i.Payload,
 		&i.StartedAt,
 		&i.FinishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertDigest = `-- name: UpsertDigest :one
+INSERT INTO digests (
+  organization_id,
+  repository_id,
+  period_start,
+  period_end,
+  title,
+  summary,
+  body_markdown,
+  generated_by,
+  updated_at
+) VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  $6,
+  $7,
+  $8,
+  NOW()
+)
+ON CONFLICT (repository_id, period_start, period_end)
+DO UPDATE SET
+  title = EXCLUDED.title,
+  summary = EXCLUDED.summary,
+  body_markdown = EXCLUDED.body_markdown,
+  generated_by = EXCLUDED.generated_by,
+  updated_at = NOW()
+RETURNING id, organization_id, repository_id, period_start, period_end, title, summary, body_markdown, generated_by, created_at, updated_at
+`
+
+type UpsertDigestParams struct {
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	RepositoryID   uuid.UUID          `json:"repository_id"`
+	PeriodStart    pgtype.Timestamptz `json:"period_start"`
+	PeriodEnd      pgtype.Timestamptz `json:"period_end"`
+	Title          string             `json:"title"`
+	Summary        string             `json:"summary"`
+	BodyMarkdown   string             `json:"body_markdown"`
+	GeneratedBy    string             `json:"generated_by"`
+}
+
+func (q *Queries) UpsertDigest(ctx context.Context, arg UpsertDigestParams) (Digest, error) {
+	row := q.db.QueryRow(ctx, upsertDigest,
+		arg.OrganizationID,
+		arg.RepositoryID,
+		arg.PeriodStart,
+		arg.PeriodEnd,
+		arg.Title,
+		arg.Summary,
+		arg.BodyMarkdown,
+		arg.GeneratedBy,
+	)
+	var i Digest
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.RepositoryID,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMarkdown,
+		&i.GeneratedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

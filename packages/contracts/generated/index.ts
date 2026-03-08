@@ -8,8 +8,13 @@ export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { CreateOrganizationRequest } from './models/CreateOrganizationRequest';
+export type { Digest } from './models/Digest';
+export type { DigestListData } from './models/DigestListData';
+export type { DigestListResponse } from './models/DigestListResponse';
 export type { ErrorDetail } from './models/ErrorDetail';
 export type { ErrorResponse } from './models/ErrorResponse';
+export type { GenerateDigestData } from './models/GenerateDigestData';
+export type { GenerateDigestResponse } from './models/GenerateDigestResponse';
 export type { GenerateMemoryData } from './models/GenerateMemoryData';
 export type { GenerateMemoryResponse } from './models/GenerateMemoryResponse';
 export type { GitHubCallbackSuccessData } from './models/GitHubCallbackSuccessData';

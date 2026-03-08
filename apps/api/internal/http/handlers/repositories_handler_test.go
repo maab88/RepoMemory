@@ -18,11 +18,13 @@ type fakeRepositoryQueryService struct {
 	listForUser  []servicerepositories.Repository
 	repositories []servicerepositories.Repository
 	repository   servicerepositories.Repository
+	digests      []servicerepositories.Digest
 	job          servicejobs.Job
 	listErr      error
 	repoErr      error
 	syncErr      error
 	memoryErr    error
+	digestErr    error
 }
 
 func (f *fakeRepositoryQueryService) ListRepositoriesForUser(_ context.Context, _ uuid.UUID) ([]servicerepositories.Repository, error) {
@@ -35,11 +37,17 @@ func (f *fakeRepositoryQueryService) ListOrganizationRepositories(_ context.Cont
 func (f *fakeRepositoryQueryService) GetRepository(_ context.Context, _, _ uuid.UUID) (servicerepositories.Repository, error) {
 	return f.repository, f.repoErr
 }
+func (f *fakeRepositoryQueryService) ListDigests(_ context.Context, _, _ uuid.UUID) ([]servicerepositories.Digest, error) {
+	return f.digests, f.digestErr
+}
 func (f *fakeRepositoryQueryService) TriggerInitialSync(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
 	return f.job, f.syncErr
 }
 func (f *fakeRepositoryQueryService) TriggerMemoryGeneration(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
 	return f.job, f.memoryErr
+}
+func (f *fakeRepositoryQueryService) TriggerDigestGeneration(_ context.Context, _, _ uuid.UUID) (servicejobs.Job, error) {
+	return f.job, f.digestErr
 }
 
 func TestListOrganizationRepositoriesReturnsPersistedRows(t *testing.T) {

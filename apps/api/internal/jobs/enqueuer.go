@@ -160,3 +160,54 @@ func (e *Enqueuer) EnqueueRepoGenerateMemory(ctx context.Context, payload RepoGe
 
 	return job, nil
 }
+
+func (e *Enqueuer) EnqueueRepoGenerateDigest(ctx context.Context, payload RepoGenerateDigestPayload) (JobRecord, error) {
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return JobRecord{}, fmt.Errorf("marshal job payload: %w", err)
+	}
+
+	job, err := e.jobRepository.CreateJob(ctx, CreateJobInput{
+		OrganizationID: &payload.OrganizationID,
+		RepositoryID:   &payload.RepositoryID,
+		JobType:        TaskRepoGenerateDigest,
+		QueueName:      QueueDefault,
+		Payload:        payloadJSON,
+	})
+	if err != nil {
+		return JobRecord{}, err
+	}
+
+	taskPayload, err := json.Marshal(repoTaskEnvelope[RepoGenerateDigestPayload]{
+		JobID:   job.ID,
+		Payload: payload,
+	})
+	if err != nil {
+		enqueueErr := fmt.Sprintf("marshal asynq task payload: %v", err)
+		_, _ = e.jobRepository.UpdateJobLifecycle(ctx, UpdateJobLifecycleInput{
+			ID:        job.ID,
+			Status:    StatusFailed,
+			Attempts:  job.Attempts,
+			LastError: &enqueueErr,
+		})
+		return JobRecord{}, fmt.Errorf("marshal asynq task payload: %w", err)
+	}
+
+	task := asynq.NewTask(TaskRepoGenerateDigest, taskPayload)
+	if _, err := e.client.Enqueue(
+		task,
+		asynq.Queue(QueueDefault),
+		asynq.MaxRetry(5),
+	); err != nil {
+		enqueueErr := fmt.Sprintf("enqueue task: %v", err)
+		_, _ = e.jobRepository.UpdateJobLifecycle(ctx, UpdateJobLifecycleInput{
+			ID:        job.ID,
+			Status:    StatusFailed,
+			Attempts:  job.Attempts,
+			LastError: &enqueueErr,
+		})
+		return JobRecord{}, fmt.Errorf("enqueue repo generate digest task: %w", err)
+	}
+
+	return job, nil
+}

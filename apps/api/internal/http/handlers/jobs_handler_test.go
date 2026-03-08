@@ -57,10 +57,16 @@ func (n *noopRepositoryService) ListOrganizationRepositories(context.Context, uu
 func (n *noopRepositoryService) GetRepository(context.Context, uuid.UUID, uuid.UUID) (servicerepositories.Repository, error) {
 	return servicerepositories.Repository{}, nil
 }
+func (n *noopRepositoryService) ListDigests(context.Context, uuid.UUID, uuid.UUID) ([]servicerepositories.Digest, error) {
+	return []servicerepositories.Digest{}, nil
+}
 func (n *noopRepositoryService) TriggerInitialSync(context.Context, uuid.UUID, uuid.UUID) (servicejobs.Job, error) {
 	return servicejobs.Job{}, nil
 }
 func (n *noopRepositoryService) TriggerMemoryGeneration(context.Context, uuid.UUID, uuid.UUID) (servicejobs.Job, error) {
+	return servicejobs.Job{}, nil
+}
+func (n *noopRepositoryService) TriggerDigestGeneration(context.Context, uuid.UUID, uuid.UUID) (servicejobs.Job, error) {
 	return servicejobs.Job{}, nil
 }
 

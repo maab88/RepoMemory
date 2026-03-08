@@ -2,6 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { DigestListResponse } from '../models/DigestListResponse';
+import type { GenerateDigestResponse } from '../models/GenerateDigestResponse';
 import type { GenerateMemoryResponse } from '../models/GenerateMemoryResponse';
 import type { MemoryEntryDetailResponse } from '../models/MemoryEntryDetailResponse';
 import type { MemoryEntryListResponse } from '../models/MemoryEntryListResponse';
@@ -164,6 +166,54 @@ export class RepositoriesService {
             path: {
                 'repoId': repoId,
                 'memoryId': memoryId,
+            },
+            errors: {
+                400: `Invalid request payload or parameters`,
+                401: `Missing or invalid auth headers`,
+                403: `Authenticated user is not allowed to access this resource`,
+                404: `Resource not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * List weekly digests for a repository
+     * @param repoId Repository identifier
+     * @returns DigestListResponse Repository digests
+     * @throws ApiError
+     */
+    public static listRepositoryDigests(
+        repoId: string,
+    ): CancelablePromise<DigestListResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/v1/repositories/{repoId}/digests',
+            path: {
+                'repoId': repoId,
+            },
+            errors: {
+                400: `Invalid request payload or parameters`,
+                401: `Missing or invalid auth headers`,
+                403: `Authenticated user is not allowed to access this resource`,
+                404: `Resource not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Enqueue weekly digest generation for a repository
+     * @param repoId Repository identifier
+     * @returns GenerateDigestResponse Digest generation job queued
+     * @throws ApiError
+     */
+    public static generateRepositoryDigest(
+        repoId: string,
+    ): CancelablePromise<GenerateDigestResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/v1/repositories/{repoId}/digests/generate',
+            path: {
+                'repoId': repoId,
             },
             errors: {
                 400: `Invalid request payload or parameters`,

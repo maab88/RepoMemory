@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { RepositoryMemoryActions } from "@/components/repositories/repository-memory-actions";
 import { RepositorySyncStatusCard } from "@/components/repositories/repository-sync-status-card";
 import { RepositoryStatsCards } from "@/components/repositories/repository-stats-cards";
+import { useGenerateDigest } from "@/lib/hooks/use-generate-digest";
 import { useGenerateMemory } from "@/lib/hooks/use-generate-memory";
 import { useJobStatus } from "@/lib/hooks/use-job-status";
 import { useRepositoryDetail } from "@/lib/hooks/use-repository-detail";
@@ -19,11 +20,15 @@ export default function RepositoryDetailPage() {
   const repoQuery = useRepositoryDetail(params.repoId);
   const triggerSync = useTriggerSync();
   const generateMemory = useGenerateMemory();
+  const generateDigest = useGenerateDigest();
   const [activeJobID, setActiveJobID] = useState<string | null>(null);
   const [memoryJobID, setMemoryJobID] = useState<string | null>(null);
+  const [digestJobID, setDigestJobID] = useState<string | null>(null);
   const [memoryError, setMemoryError] = useState<string | null>(null);
+  const [digestError, setDigestError] = useState<string | null>(null);
   const jobQuery = useJobStatus(activeJobID);
   const memoryJobQuery = useJobStatus(memoryJobID);
+  const digestJobQuery = useJobStatus(digestJobID);
 
   useEffect(() => {
     const status = jobQuery.data?.job.status;
@@ -47,6 +52,18 @@ export default function RepositoryDetailPage() {
     }
   }, [memoryJobQuery.data?.job.lastError, memoryJobQuery.data?.job.status, params.repoId, queryClient]);
 
+  useEffect(() => {
+    const status = digestJobQuery.data?.job.status;
+    if (status === "succeeded" || status === "failed") {
+      void queryClient.invalidateQueries({ queryKey: ["repository-detail", params.repoId] });
+      void queryClient.invalidateQueries({ queryKey: ["repository-digests", params.repoId] });
+      void queryClient.invalidateQueries({ queryKey: ["repositories"] });
+    }
+    if (status === "failed") {
+      setDigestError(digestJobQuery.data?.job.lastError ?? "Digest generation failed. Please try again.");
+    }
+  }, [digestJobQuery.data?.job.lastError, digestJobQuery.data?.job.status, params.repoId, queryClient]);
+
   const onTriggerSync = async () => {
     const response = await triggerSync.mutateAsync(params.repoId);
     setActiveJobID(response.jobId);
@@ -59,6 +76,16 @@ export default function RepositoryDetailPage() {
       setMemoryJobID(response.jobId);
     } catch {
       setMemoryError("Could not queue memory generation.");
+    }
+  };
+
+  const onGenerateDigest = async () => {
+    setDigestError(null);
+    try {
+      const response = await generateDigest.mutateAsync(params.repoId);
+      setDigestJobID(response.jobId);
+    } catch {
+      setDigestError("Could not queue digest generation.");
     }
   };
 
@@ -92,6 +119,9 @@ export default function RepositoryDetailPage() {
               <Link href={`/repositories/${params.repoId}/memory`} className="text-sm font-medium text-slate-600 underline decoration-slate-300 hover:text-slate-900">
                 Open memory timeline
               </Link>
+              <Link href={`/repositories/${params.repoId}/digests`} className="text-sm font-medium text-slate-600 underline decoration-slate-300 hover:text-slate-900">
+                Open weekly digests
+              </Link>
             </div>
             <div className="mt-4">
               <RepositoryMemoryActions
@@ -100,6 +130,18 @@ export default function RepositoryDetailPage() {
                 generationStatus={memoryJobQuery.data?.job.status ?? null}
                 generationError={memoryError}
               />
+              <div className="mt-4 space-y-2">
+                <button
+                  type="button"
+                  onClick={onGenerateDigest}
+                  disabled={generateDigest.isPending}
+                  className="inline-flex rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {generateDigest.isPending ? "Queueing digest job..." : "Generate weekly digest"}
+                </button>
+                {digestJobQuery.data?.job.status ? <p className="text-xs text-slate-500">Digest job status: {digestJobQuery.data.job.status}</p> : null}
+                {digestError ? <p className="text-sm text-rose-700">{digestError}</p> : null}
+              </div>
             </div>
           </article>
 

@@ -7,6 +7,7 @@ import RepositoryDetailPage from "@/app/repositories/[repoId]/page";
 const useRepositoryDetailMock = vi.fn();
 const triggerSyncMutateAsyncMock = vi.fn();
 const generateMemoryMutateAsyncMock = vi.fn();
+const generateDigestMutateAsyncMock = vi.fn();
 const useJobStatusMock = vi.fn();
 const useParamsMock = vi.fn();
 
@@ -25,6 +26,13 @@ vi.mock("@/lib/hooks/use-generate-memory", () => ({
   useGenerateMemory: () => ({
     isPending: false,
     mutateAsync: (repoId: string) => generateMemoryMutateAsyncMock(repoId),
+  }),
+}));
+
+vi.mock("@/lib/hooks/use-generate-digest", () => ({
+  useGenerateDigest: () => ({
+    isPending: false,
+    mutateAsync: (repoId: string) => generateDigestMutateAsyncMock(repoId),
   }),
 }));
 
@@ -68,6 +76,7 @@ describe("RepositoryDetailPage", () => {
     });
     triggerSyncMutateAsyncMock.mockResolvedValue({ jobId: "job-1", status: "queued" });
     generateMemoryMutateAsyncMock.mockResolvedValue({ jobId: "job-2", status: "queued" });
+    generateDigestMutateAsyncMock.mockResolvedValue({ jobId: "job-3", status: "queued" });
   });
 
   it("renders persisted repository details", () => {
@@ -106,6 +115,20 @@ describe("RepositoryDetailPage", () => {
 
     await waitFor(() => {
       expect(generateMemoryMutateAsyncMock).toHaveBeenCalledWith("repo-1");
+    });
+  });
+
+  it("triggers digest generation", async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RepositoryDetailPage />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate weekly digest" }));
+
+    await waitFor(() => {
+      expect(generateDigestMutateAsyncMock).toHaveBeenCalledWith("repo-1");
     });
   });
 });

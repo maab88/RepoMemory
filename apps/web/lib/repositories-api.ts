@@ -3,7 +3,9 @@ import {
   RepositoriesService,
   SearchService,
   type GenerateMemoryData,
+  type GenerateDigestData,
   type JobResponseData,
+  type DigestListData,
   type MemorySearchData,
   type MemoryEntryDetailData,
   type MemoryEntryListData,
@@ -45,6 +47,14 @@ export function getRepositoryMemoryDetail(repoId: string, memoryId: string): Pro
 
 export function generateRepositoryMemory(repoId: string): Promise<GenerateMemoryData> {
   return unwrapData(RepositoriesService.generateRepositoryMemory(repoId));
+}
+
+export function listRepositoryDigests(repoId: string): Promise<DigestListData> {
+  return unwrapData(RepositoriesService.listRepositoryDigests(repoId));
+}
+
+export function generateRepositoryDigest(repoId: string): Promise<GenerateDigestData> {
+  return unwrapData(RepositoriesService.generateRepositoryDigest(repoId));
 }
 
 export function searchMemory(params: {

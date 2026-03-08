@@ -559,6 +559,72 @@ paths:
           $ref: "#/components/responses/NotFoundError"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/repositories/{repoId}/digests:
+    get:
+      tags:
+        - Repositories
+      operationId: listRepositoryDigests
+      summary: List weekly digests for a repository
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: repoId
+          in: path
+          required: true
+          description: Repository identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Repository digests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigestListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/repositories/{repoId}/digests/generate:
+    post:
+      tags:
+        - Repositories
+      operationId: generateRepositoryDigest
+      summary: Enqueue weekly digest generation for a repository
+      security:
+        - MockUserHeader: []
+      parameters:
+        - name: repoId
+          in: path
+          required: true
+          description: Repository identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Digest generation job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateDigestResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MockUserHeader:
@@ -1170,6 +1236,63 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MemorySearchResult"
+    Digest:
+      type: object
+      required:
+        - id
+        - repositoryId
+        - periodStart
+        - periodEnd
+        - title
+        - summary
+        - generatedBy
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        repositoryId:
+          type: string
+          format: uuid
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        title:
+          type: string
+        summary:
+          type: string
+        bodyMarkdown:
+          type: string
+        generatedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    DigestListData:
+      type: object
+      required:
+        - digests
+      properties:
+        digests:
+          type: array
+          items:
+            $ref: "#/components/schemas/Digest"
+    GenerateDigestData:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - queued
     MeResponse:
       type: object
       required:
@@ -1284,3 +1407,17 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/MemorySearchData"
+    DigestListResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/DigestListData"
+    GenerateDigestResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/GenerateDigestData"
