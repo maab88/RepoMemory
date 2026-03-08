@@ -11,6 +11,7 @@ import (
 	"github.com/maab88/repomemory/apps/worker/internal/jobs"
 	"github.com/maab88/repomemory/apps/worker/internal/jobs/handlers"
 	"github.com/maab88/repomemory/apps/worker/internal/services"
+	workersai "github.com/maab88/repomemory/apps/worker/internal/services/ai"
 	"github.com/rs/zerolog/log"
 )
 
@@ -33,9 +34,20 @@ func RunAsynqServer(ctx context.Context, cfg config.Config) error {
 	store := jobs.NewStore(pool)
 	githubSyncClient := services.NewHTTPGitHubSyncClient(cfg.GitHubAPIBase)
 	initialSyncService := services.NewGitHubSyncService(store, githubSyncClient)
-	memoryGenerator := services.NewDeterministicMemoryGenerator()
+	aiProvider, err := workersai.NewProvider(workersai.Config{
+		Provider:    cfg.AIProvider,
+		OpenAIKey:   cfg.OpenAIAPIKey,
+		OpenAIURL:   cfg.OpenAIBaseURL,
+		OpenAIModel: cfg.OpenAIModel,
+	})
+	if err != nil {
+		return fmt.Errorf("initialize ai provider: %w", err)
+	}
+	log.Info().Str("provider", aiProvider.Name()).Msg("worker ai provider configured")
+
+	memoryGenerator := services.NewAIMemoryGenerator(aiProvider, services.NewDeterministicMemoryGenerator())
 	memoryGenerationService := services.NewMemoryGenerationService(store, memoryGenerator)
-	digestBuilder := services.NewDeterministicDigestBuilder()
+	digestBuilder := services.NewAIDigestGenerator(aiProvider, services.NewDeterministicDigestBuilder())
 	digestGenerationService := services.NewDigestGenerationService(store, digestBuilder)
 	initialSyncHandler := handlers.NewRepoInitialSyncHandler(store, initialSyncService)
 	incrementalHandler := handlers.NewRepoIncrementalSyncHandler()

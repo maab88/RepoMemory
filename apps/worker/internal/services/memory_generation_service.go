@@ -24,16 +24,21 @@ type MemoryGenerationResult struct {
 	Skipped               int
 }
 
+type MemoryDraftGenerator interface {
+	GenerateFromPullRequest(pr jobs.PullRequestForMemory) (MemoryEntryDraft, bool)
+	GenerateFromIssue(issue jobs.IssueForMemory) (MemoryEntryDraft, bool)
+}
+
 type MemoryGenerationService struct {
 	store      MemoryGenerationStore
-	generator  *DeterministicMemoryGenerator
+	generator  MemoryDraftGenerator
 	sourceType struct {
 		pullRequest string
 		issue       string
 	}
 }
 
-func NewMemoryGenerationService(store MemoryGenerationStore, generator *DeterministicMemoryGenerator) *MemoryGenerationService {
+func NewMemoryGenerationService(store MemoryGenerationStore, generator MemoryDraftGenerator) *MemoryGenerationService {
 	return &MemoryGenerationService{
 		store:     store,
 		generator: generator,

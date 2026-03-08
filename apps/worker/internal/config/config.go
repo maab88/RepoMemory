@@ -7,6 +7,10 @@ type Config struct {
 	RedisAddr     string
 	DatabaseURL   string
 	GitHubAPIBase string
+	AIProvider    string
+	OpenAIAPIKey  string
+	OpenAIBaseURL string
+	OpenAIModel   string
 }
 
 func Load() Config {
@@ -30,5 +34,29 @@ func Load() Config {
 		gitHubAPIBase = "https://api.github.com"
 	}
 
-	return Config{Env: env, RedisAddr: redisAddr, DatabaseURL: databaseURL, GitHubAPIBase: gitHubAPIBase}
+	aiProvider := os.Getenv("AI_PROVIDER")
+	if aiProvider == "" {
+		aiProvider = "disabled"
+	}
+
+	openAIBaseURL := os.Getenv("OPENAI_BASE_URL")
+	if openAIBaseURL == "" {
+		openAIBaseURL = "https://api.openai.com/v1/chat/completions"
+	}
+
+	openAIModel := os.Getenv("OPENAI_MODEL")
+	if openAIModel == "" {
+		openAIModel = "gpt-4o-mini"
+	}
+
+	return Config{
+		Env:           env,
+		RedisAddr:     redisAddr,
+		DatabaseURL:   databaseURL,
+		GitHubAPIBase: gitHubAPIBase,
+		AIProvider:    aiProvider,
+		OpenAIAPIKey:  os.Getenv("OPENAI_API_KEY"),
+		OpenAIBaseURL: openAIBaseURL,
+		OpenAIModel:   openAIModel,
+	}
 }
