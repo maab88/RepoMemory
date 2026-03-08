@@ -56,6 +56,24 @@ RepoMemory is a SaaS MVP that turns GitHub engineering activity into searchable 
   - `cd apps/api && go test ./...`
   - Optional override: set `TEST_DATABASE_URL`
 
+## GitHub OAuth (v1)
+RepoMemory v1 uses GitHub OAuth App flow (not GitHub App installation flow).
+
+1. Create a GitHub OAuth App in your GitHub account settings.
+2. Set callback URL to `http://localhost:3000/integrations/github/callback`.
+3. Set API env vars in `apps/api/.env`:
+   - `GITHUB_CLIENT_ID`
+   - `GITHUB_CLIENT_SECRET`
+   - `GITHUB_STATE_SECRET` (random secret for signed OAuth state)
+   - Optional overrides:
+     - `GITHUB_REDIRECT_URL` (default `http://localhost:3000/integrations/github/callback`)
+     - `GITHUB_OAUTH_SCOPE` (default `repo read:user user:email`)
+4. Restart API after env updates.
+
+Connect flow routes:
+- `POST /v1/github/connect/start`
+- `GET /v1/github/callback` (JSON callback completion endpoint, consumed by web callback page)
+
 ## API Contract Workflow
 - Source of truth: `packages/contracts/openapi.yaml`
 - Generated client output: `packages/contracts/generated`
@@ -81,6 +99,12 @@ RepoMemory is a SaaS MVP that turns GitHub engineering activity into searchable 
 ### API (`apps/api/.env`)
 - `API_PORT`: API HTTP port
 - `API_ENV`: environment name
+- `DATABASE_URL`: Postgres connection string
+- `GITHUB_CLIENT_ID`: GitHub OAuth app client ID
+- `GITHUB_CLIENT_SECRET`: GitHub OAuth app client secret
+- `GITHUB_STATE_SECRET`: secret used to sign/validate OAuth state
+- `GITHUB_REDIRECT_URL` (optional): callback URL used in OAuth exchange
+- `GITHUB_OAUTH_SCOPE` (optional): OAuth scopes requested during connect
 
 ### Worker (`apps/worker/.env`)
 - `WORKER_ENV`: environment name

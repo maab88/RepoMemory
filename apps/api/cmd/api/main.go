@@ -13,6 +13,7 @@ import (
 	"github.com/maab88/repomemory/apps/api/internal/auth"
 	"github.com/maab88/repomemory/apps/api/internal/config"
 	"github.com/maab88/repomemory/apps/api/internal/db"
+	gh "github.com/maab88/repomemory/apps/api/internal/github"
 	"github.com/maab88/repomemory/apps/api/internal/http/handlers"
 	"github.com/maab88/repomemory/apps/api/internal/http/router"
 	"github.com/maab88/repomemory/apps/api/internal/org"
@@ -38,7 +39,21 @@ func main() {
 	userResolver := auth.NewMockUserResolver(queries)
 	orgStore := org.NewStore(pool, queries)
 	orgService := org.NewService(orgStore)
-	v1Handler := handlers.NewV1Handler(orgService)
+	githubStore := gh.NewAccountRepository(queries)
+	githubState := gh.NewMemoryStateService(cfg.GitHubStateSecret, cfg.GitHubStateTTL)
+	githubClient := gh.NewHTTPGitHubClient(cfg.GitHubClientID, cfg.GitHubClientSecret, cfg.GitHubTokenURL, cfg.GitHubAPIBaseURL)
+	githubOAuth := gh.NewOAuthService(gh.OAuthConfig{
+		ClientID:     cfg.GitHubClientID,
+		ClientSecret: cfg.GitHubClientSecret,
+		AuthorizeURL: cfg.GitHubAuthorizeURL,
+		TokenURL:     cfg.GitHubTokenURL,
+		APIBaseURL:   cfg.GitHubAPIBaseURL,
+		RedirectURL:  cfg.GitHubRedirectURL,
+		StateSecret:  cfg.GitHubStateSecret,
+		StateTTL:     cfg.GitHubStateTTL,
+		Scope:        cfg.GitHubOAuthScope,
+	}, githubState, githubClient, githubStore, gh.PlaintextTokenSealer{})
+	v1Handler := handlers.NewV1Handler(orgService, githubOAuth)
 
 	h := router.New(router.Dependencies{
 		AuthMiddleware: auth.RequireMockAuth(userResolver),

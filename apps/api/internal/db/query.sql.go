@@ -711,6 +711,65 @@ func (q *Queries) UpdateJobStatus(ctx context.Context, arg UpdateJobStatusParams
 	return i, err
 }
 
+const upsertGithubAccount = `-- name: UpsertGithubAccount :one
+INSERT INTO github_accounts (
+  user_id,
+  github_user_id,
+  github_login,
+  access_token_encrypted,
+  token_scope,
+  connected_at,
+  updated_at
+) VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  NOW(),
+  NOW()
+)
+ON CONFLICT (user_id, github_user_id)
+DO UPDATE SET
+  github_login = EXCLUDED.github_login,
+  access_token_encrypted = EXCLUDED.access_token_encrypted,
+  token_scope = EXCLUDED.token_scope,
+  connected_at = NOW(),
+  updated_at = NOW()
+RETURNING id, user_id, github_user_id, github_login, access_token_encrypted, token_scope, connected_at, created_at, updated_at
+`
+
+type UpsertGithubAccountParams struct {
+	UserID               uuid.UUID   `json:"user_id"`
+	GithubUserID         int64       `json:"github_user_id"`
+	GithubLogin          string      `json:"github_login"`
+	AccessTokenEncrypted string      `json:"access_token_encrypted"`
+	TokenScope           pgtype.Text `json:"token_scope"`
+}
+
+func (q *Queries) UpsertGithubAccount(ctx context.Context, arg UpsertGithubAccountParams) (GithubAccount, error) {
+	row := q.db.QueryRow(ctx, upsertGithubAccount,
+		arg.UserID,
+		arg.GithubUserID,
+		arg.GithubLogin,
+		arg.AccessTokenEncrypted,
+		arg.TokenScope,
+	)
+	var i GithubAccount
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.GithubUserID,
+		&i.GithubLogin,
+		&i.AccessTokenEncrypted,
+		&i.TokenScope,
+		&i.ConnectedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const upsertIssue = `-- name: UpsertIssue :one
 INSERT INTO issues (
   repository_id,
@@ -1116,4 +1175,24 @@ func (q *Queries) UpsertUserByID(ctx context.Context, arg UpsertUserByIDParams) 
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const userHasMembership = `-- name: UserHasMembership :one
+SELECT EXISTS(
+  SELECT 1
+  FROM memberships
+  WHERE user_id = $1 AND organization_id = $2
+)
+`
+
+type UserHasMembershipParams struct {
+	UserID         uuid.UUID `json:"user_id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+func (q *Queries) UserHasMembership(ctx context.Context, arg UserHasMembershipParams) (bool, error) {
+	row := q.db.QueryRow(ctx, userHasMembership, arg.UserID, arg.OrganizationID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }

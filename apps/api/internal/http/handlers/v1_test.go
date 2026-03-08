@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/maab88/repomemory/apps/api/internal/auth"
+	gh "github.com/maab88/repomemory/apps/api/internal/github"
 	"github.com/maab88/repomemory/apps/api/internal/org"
 )
 
@@ -29,6 +30,23 @@ type fakeOrgService struct {
 	getErr       error
 }
 
+type fakeGitHubOAuthService struct {
+	redirectURL string
+	account     gh.GitHubConnectionSummary
+	startErr    error
+	callbackErr error
+	callbacks   int
+}
+
+func (f *fakeGitHubOAuthService) StartConnect(_ context.Context, _ gh.OAuthStartInput) (string, error) {
+	return f.redirectURL, f.startErr
+}
+
+func (f *fakeGitHubOAuthService) HandleCallback(_ context.Context, _ gh.OAuthCallbackInput) (gh.GitHubConnectionSummary, error) {
+	f.callbacks++
+	return f.account, f.callbackErr
+}
+
 func (f *fakeOrgService) CreateOrganization(_ context.Context, _ uuid.UUID, _ string) (org.OrganizationWithRole, error) {
 	return f.createResult, f.createErr
 }
@@ -42,7 +60,11 @@ func (f *fakeOrgService) GetOrganization(_ context.Context, _, _ uuid.UUID) (org
 }
 
 func newTestRouter(orgSvc OrganizationService) http.Handler {
-	h := NewV1Handler(orgSvc)
+	return newTestRouterWithGitHub(orgSvc, &fakeGitHubOAuthService{})
+}
+
+func newTestRouterWithGitHub(orgSvc OrganizationService, githubSvc GitHubOAuthService) http.Handler {
+	h := NewV1Handler(orgSvc, githubSvc)
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(auth.RequireMockAuth(fakeResolver{}))
@@ -50,6 +72,8 @@ func newTestRouter(orgSvc OrganizationService) http.Handler {
 		r.Get("/organizations", h.ListOrganizations)
 		r.Post("/organizations", h.CreateOrganization)
 		r.Get("/organizations/{orgId}", h.GetOrganization)
+		r.Post("/github/connect/start", h.StartGitHubConnect)
+		r.Get("/github/callback", h.GitHubCallback)
 	})
 	return r
 }
@@ -173,5 +197,121 @@ func TestGetOrganizationBadID(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestStartGitHubConnectReturnsRedirectURL(t *testing.T) {
+	githubSvc := &fakeGitHubOAuthService{redirectURL: "https://github.com/login/oauth/authorize?state=abc"}
+	router := newTestRouterWithGitHub(&fakeOrgService{}, githubSvc)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/github/connect/start", bytes.NewBufferString(`{}`))
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var payload struct {
+		Data struct {
+			RedirectURL string `json:"redirectUrl"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if payload.Data.RedirectURL == "" {
+		t.Fatal("expected redirectUrl to be present")
+	}
+}
+
+func TestGitHubCallbackMissingCode(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{callbackErr: gh.ErrOAuthCodeMissing})
+	req := httptest.NewRequest(http.MethodGet, "/v1/github/callback?state=abc", nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestGitHubCallbackInvalidState(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{callbackErr: gh.ErrInvalidState})
+	req := httptest.NewRequest(http.MethodGet, "/v1/github/callback?state=bad&code=123", nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestGitHubCallbackTokenExchangeFailure(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{callbackErr: gh.ErrTokenExchangeFailed})
+	req := httptest.NewRequest(http.MethodGet, "/v1/github/callback?state=ok&code=123", nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d", rr.Code)
+	}
+}
+
+func TestGitHubCallbackSuccess(t *testing.T) {
+	account := gh.GitHubConnectionSummary{
+		ID:           uuid.New(),
+		GitHubLogin:  "octocat",
+		GitHubUserID: "12345",
+	}
+	githubSvc := &fakeGitHubOAuthService{account: account}
+	router := newTestRouterWithGitHub(&fakeOrgService{}, githubSvc)
+	req := httptest.NewRequest(http.MethodGet, "/v1/github/callback?state=ok&code=123", nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var payload struct {
+		Data struct {
+			Connected bool `json:"connected"`
+			Account   struct {
+				GitHubLogin string `json:"githubLogin"`
+			} `json:"account"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if !payload.Data.Connected || payload.Data.Account.GitHubLogin != "octocat" {
+		t.Fatalf("unexpected callback payload: %+v", payload.Data)
+	}
+	if githubSvc.callbacks != 1 {
+		t.Fatalf("expected callback service to be called once, got %d", githubSvc.callbacks)
+	}
+}
+
+func TestStartGitHubConnectOrganizationForbidden(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{startErr: gh.ErrOrganizationAccessDenied})
+	req := httptest.NewRequest(http.MethodPost, "/v1/github/connect/start", bytes.NewBufferString(`{"organizationId":"`+uuid.New().String()+`"}`))
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rr.Code)
 	}
 }

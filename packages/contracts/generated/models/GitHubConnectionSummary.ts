@@ -2,9 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type ErrorDetail = {
-    code: string;
-    message: string;
-    requestId?: string;
+export type GitHubConnectionSummary = {
+    id: string;
+    githubLogin: string;
+    githubUserId: string;
+    connectedAt: string;
 };
 

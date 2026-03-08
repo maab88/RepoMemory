@@ -22,6 +22,8 @@ func New(deps Dependencies) http.Handler {
 		r.Get("/organizations", deps.V1Handler.ListOrganizations)
 		r.Post("/organizations", deps.V1Handler.CreateOrganization)
 		r.Get("/organizations/{orgId}", deps.V1Handler.GetOrganization)
+		r.Post("/github/connect/start", deps.V1Handler.StartGitHubConnect)
+		r.Get("/github/callback", deps.V1Handler.GitHubCallback)
 	})
 
 	return r

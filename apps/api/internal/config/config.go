@@ -1,11 +1,23 @@
 package config
 
-import "os"
+import (
+	"os"
+	"time"
+)
 
 type Config struct {
-	Port        string
-	Env         string
-	DatabaseURL string
+	Port               string
+	Env                string
+	DatabaseURL        string
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubAuthorizeURL string
+	GitHubTokenURL     string
+	GitHubAPIBaseURL   string
+	GitHubRedirectURL  string
+	GitHubStateSecret  string
+	GitHubStateTTL     time.Duration
+	GitHubOAuthScope   string
 }
 
 func Load() Config {
@@ -24,5 +36,51 @@ func Load() Config {
 		databaseURL = "postgres://postgres:postgres@localhost:5432/repomemory?sslmode=disable"
 	}
 
-	return Config{Port: port, Env: env, DatabaseURL: databaseURL}
+	gitHubAuthorizeURL := os.Getenv("GITHUB_AUTHORIZE_URL")
+	if gitHubAuthorizeURL == "" {
+		gitHubAuthorizeURL = "https://github.com/login/oauth/authorize"
+	}
+
+	gitHubTokenURL := os.Getenv("GITHUB_TOKEN_URL")
+	if gitHubTokenURL == "" {
+		gitHubTokenURL = "https://github.com/login/oauth/access_token"
+	}
+
+	gitHubAPIBaseURL := os.Getenv("GITHUB_API_BASE_URL")
+	if gitHubAPIBaseURL == "" {
+		gitHubAPIBaseURL = "https://api.github.com"
+	}
+
+	gitHubRedirectURL := os.Getenv("GITHUB_REDIRECT_URL")
+	if gitHubRedirectURL == "" {
+		gitHubRedirectURL = "http://localhost:3000/integrations/github/callback"
+	}
+
+	gitHubStateTTL := 10 * time.Minute
+	gitHubStateTTLRaw := os.Getenv("GITHUB_STATE_TTL")
+	if gitHubStateTTLRaw != "" {
+		if parsed, err := time.ParseDuration(gitHubStateTTLRaw); err == nil && parsed > 0 {
+			gitHubStateTTL = parsed
+		}
+	}
+
+	gitHubOAuthScope := os.Getenv("GITHUB_OAUTH_SCOPE")
+	if gitHubOAuthScope == "" {
+		gitHubOAuthScope = "repo read:user user:email"
+	}
+
+	return Config{
+		Port:               port,
+		Env:                env,
+		DatabaseURL:        databaseURL,
+		GitHubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+		GitHubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		GitHubAuthorizeURL: gitHubAuthorizeURL,
+		GitHubTokenURL:     gitHubTokenURL,
+		GitHubAPIBaseURL:   gitHubAPIBaseURL,
+		GitHubRedirectURL:  gitHubRedirectURL,
+		GitHubStateSecret:  os.Getenv("GITHUB_STATE_SECRET"),
+		GitHubStateTTL:     gitHubStateTTL,
+		GitHubOAuthScope:   gitHubOAuthScope,
+	}
 }

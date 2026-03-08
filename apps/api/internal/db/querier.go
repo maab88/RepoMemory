@@ -26,11 +26,13 @@ type Querier interface {
 	ListOrganizationsWithRoleForUser(ctx context.Context, userID uuid.UUID) ([]ListOrganizationsWithRoleForUserRow, error)
 	ListRepositoriesForOrganization(ctx context.Context, organizationID uuid.UUID) ([]Repository, error)
 	UpdateJobStatus(ctx context.Context, arg UpdateJobStatusParams) (Job, error)
+	UpsertGithubAccount(ctx context.Context, arg UpsertGithubAccountParams) (GithubAccount, error)
 	UpsertIssue(ctx context.Context, arg UpsertIssueParams) (Issue, error)
 	UpsertPullRequest(ctx context.Context, arg UpsertPullRequestParams) (PullRequest, error)
 	UpsertRepository(ctx context.Context, arg UpsertRepositoryParams) (Repository, error)
 	UpsertRepositorySyncState(ctx context.Context, arg UpsertRepositorySyncStateParams) (RepositorySyncState, error)
 	UpsertUserByID(ctx context.Context, arg UpsertUserByIDParams) (User, error)
+	UserHasMembership(ctx context.Context, arg UserHasMembershipParams) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)

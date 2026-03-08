@@ -22,7 +22,8 @@ function buildMockHeaders(request: NextRequest): Headers {
 }
 
 async function forward(request: NextRequest, path: string[]) {
-  const url = `${apiBaseUrl}/v1/${path.join("/")}`;
+  const query = request.nextUrl.search ?? "";
+  const url = `${apiBaseUrl}/v1/${path.join("/")}${query}`;
   const body = request.method === "GET" ? undefined : await request.text();
 
   const upstream = await fetch(url, {

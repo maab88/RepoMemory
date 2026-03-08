@@ -394,3 +394,37 @@ SELECT
 FROM organizations o
 INNER JOIN memberships m ON m.organization_id = o.id
 WHERE o.id = $1 AND m.user_id = $2;
+
+-- name: UserHasMembership :one
+SELECT EXISTS(
+  SELECT 1
+  FROM memberships
+  WHERE user_id = $1 AND organization_id = $2
+);
+
+-- name: UpsertGithubAccount :one
+INSERT INTO github_accounts (
+  user_id,
+  github_user_id,
+  github_login,
+  access_token_encrypted,
+  token_scope,
+  connected_at,
+  updated_at
+) VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  NOW(),
+  NOW()
+)
+ON CONFLICT (user_id, github_user_id)
+DO UPDATE SET
+  github_login = EXCLUDED.github_login,
+  access_token_encrypted = EXCLUDED.access_token_encrypted,
+  token_scope = EXCLUDED.token_scope,
+  connected_at = NOW(),
+  updated_at = NOW()
+RETURNING *;

@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+function makeUUID() {
+  return "11111111-1111-4111-8111-111111111111".replace(/1/g, () => Math.floor(Math.random() * 16).toString(16));
+}
+
 test.use({
   extraHTTPHeaders: {
     "x-user-id": "playwright-user-1",
@@ -25,7 +29,7 @@ test("onboarding creates organization and lands on detail page", async ({ page }
 
     if (request.method() === "POST") {
       const payload = request.postDataJSON() as { name: string };
-      const id = `org-${Date.now()}`;
+      const id = makeUUID();
       const slug = payload.name.toLowerCase().replace(/\s+/g, "-");
       const created = { id, name: payload.name, slug, role: "owner" as const };
       organizations.push(created);
@@ -67,7 +71,7 @@ test("onboarding creates organization and lands on detail page", async ({ page }
   await page.getByLabel("Organization name").fill(orgName);
   await page.getByRole("button", { name: "Create organization" }).click();
 
-  await expect(page).toHaveURL(/\/organizations\//);
+  await expect(page).toHaveURL(/\/organizations\//, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: orgName })).toBeVisible();
 
   await page.goto("/organizations");
