@@ -3,9 +3,10 @@ package config
 import "os"
 
 type Config struct {
-	Env         string
-	RedisAddr   string
-	DatabaseURL string
+	Env           string
+	RedisAddr     string
+	DatabaseURL   string
+	GitHubAPIBase string
 }
 
 func Load() Config {
@@ -24,5 +25,10 @@ func Load() Config {
 		databaseURL = "postgres://postgres:postgres@localhost:5432/repomemory?sslmode=disable"
 	}
 
-	return Config{Env: env, RedisAddr: redisAddr, DatabaseURL: databaseURL}
+	gitHubAPIBase := os.Getenv("GITHUB_API_BASE_URL")
+	if gitHubAPIBase == "" {
+		gitHubAPIBase = "https://api.github.com"
+	}
+
+	return Config{Env: env, RedisAddr: redisAddr, DatabaseURL: databaseURL, GitHubAPIBase: gitHubAPIBase}
 }

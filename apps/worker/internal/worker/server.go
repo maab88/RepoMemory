@@ -10,6 +10,7 @@ import (
 	"github.com/maab88/repomemory/apps/worker/internal/config"
 	"github.com/maab88/repomemory/apps/worker/internal/jobs"
 	"github.com/maab88/repomemory/apps/worker/internal/jobs/handlers"
+	"github.com/maab88/repomemory/apps/worker/internal/services"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,7 +31,9 @@ func RunAsynqServer(ctx context.Context, cfg config.Config) error {
 	defer pool.Close()
 
 	store := jobs.NewStore(pool)
-	initialSyncHandler := handlers.NewRepoInitialSyncHandler(store, &handlers.DefaultRepoInitialSyncService{})
+	githubSyncClient := services.NewHTTPGitHubSyncClient(cfg.GitHubAPIBase)
+	initialSyncService := services.NewGitHubSyncService(store, githubSyncClient)
+	initialSyncHandler := handlers.NewRepoInitialSyncHandler(store, initialSyncService)
 	incrementalHandler := handlers.NewRepoIncrementalSyncHandler()
 	generateMemoryHandler := handlers.NewGenerateMemoryHandler()
 	generateDigestHandler := handlers.NewGenerateDigestHandler()

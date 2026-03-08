@@ -19,6 +19,7 @@ type fakeStore struct {
 	failedCalled        bool
 	retryableFailCalled bool
 	lastSyncStatus      string
+	lastSyncError       *string
 }
 
 func (f *fakeStore) GetJobAttempts(context.Context, uuid.UUID) (int, error) {
@@ -40,8 +41,9 @@ func (f *fakeStore) MarkJobFailed(context.Context, uuid.UUID, int, string) error
 	f.failedCalled = true
 	return nil
 }
-func (f *fakeStore) UpdateRepositorySyncStatus(_ context.Context, _ uuid.UUID, status string, _ *string, _ *time.Time) error {
+func (f *fakeStore) UpdateRepositorySyncStatus(_ context.Context, _ uuid.UUID, status string, lastError *string, _ *time.Time) error {
 	f.lastSyncStatus = status
+	f.lastSyncError = lastError
 	return nil
 }
 
@@ -90,5 +92,11 @@ func TestRepoInitialSyncFailurePersistsError(t *testing.T) {
 	}
 	if !store.retryableFailCalled && !store.failedCalled {
 		t.Fatal("expected failed transition to be persisted")
+	}
+	if store.lastSyncStatus != jobs.StatusFailed {
+		t.Fatalf("expected sync status failed, got %s", store.lastSyncStatus)
+	}
+	if store.lastSyncError == nil || *store.lastSyncError == "" {
+		t.Fatal("expected sync error to be recorded")
 	}
 }
