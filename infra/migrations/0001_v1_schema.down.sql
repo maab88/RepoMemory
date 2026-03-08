@@ -1,0 +1,13 @@
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS digests;
+DROP TABLE IF EXISTS memory_entry_sources;
+DROP TABLE IF EXISTS memory_entries;
+DROP TABLE IF EXISTS issues;
+DROP TABLE IF EXISTS pull_requests;
+DROP TABLE IF EXISTS repository_sync_states;
+DROP TABLE IF EXISTS repositories;
+DROP TABLE IF EXISTS github_accounts;
+DROP TABLE IF EXISTS memberships;
+DROP TABLE IF EXISTS organizations;
+DROP TABLE IF EXISTS users;

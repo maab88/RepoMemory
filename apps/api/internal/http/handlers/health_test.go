@@ -1,10 +1,11 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/maab88/repomemory/apps/api/internal/testutil"
 )
 
 func TestHealth(t *testing.T) {
@@ -17,10 +18,7 @@ func TestHealth(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusOK, rr.Code)
 	}
 
-	var got HealthResponse
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
+	got := testutil.DecodeJSON[HealthResponse](t, rr)
 
 	if got.Status != "ok" {
 		t.Fatalf("expected status ok, got %s", got.Status)
