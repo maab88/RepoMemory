@@ -1,19 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { RepositorySyncStatusCard } from "@/components/repositories/repository-sync-status-card";
+import { RepositoryStatsCards } from "@/components/repositories/repository-stats-cards";
 import { useJobStatus } from "@/lib/hooks/use-job-status";
 import { useRepositoryDetail } from "@/lib/hooks/use-repository-detail";
 import { useTriggerSync } from "@/lib/hooks/use-trigger-sync";
 
 export default function RepositoryDetailPage() {
   const params = useParams<{ repoId: string }>();
+  const queryClient = useQueryClient();
   const repoQuery = useRepositoryDetail(params.repoId);
   const triggerSync = useTriggerSync();
   const [activeJobID, setActiveJobID] = useState<string | null>(null);
   const jobQuery = useJobStatus(activeJobID);
+
+  useEffect(() => {
+    const status = jobQuery.data?.job.status;
+    if (status === "succeeded" || status === "failed") {
+      void queryClient.invalidateQueries({ queryKey: ["repository-detail", params.repoId] });
+      void queryClient.invalidateQueries({ queryKey: ["repositories"] });
+      void queryClient.invalidateQueries({ queryKey: ["organization-repositories"] });
+    }
+  }, [jobQuery.data?.job.status, params.repoId, queryClient]);
 
   const onTriggerSync = async () => {
     const response = await triggerSync.mutateAsync(params.repoId);
@@ -31,8 +43,9 @@ export default function RepositoryDetailPage() {
 
       {repoQuery.data ? (
         <>
-          <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{repoQuery.data.repository.fullName}</h2>
+          <article className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Repository Detail</p>
+            <h2 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">{repoQuery.data.repository.fullName}</h2>
             <p className="mt-2 text-sm text-slate-600">{repoQuery.data.repository.description || "No description provided."}</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
@@ -49,7 +62,22 @@ export default function RepositoryDetailPage() {
             </div>
           </article>
 
-          <RepositorySyncStatusCard status={jobQuery.data?.job.status ?? repoQuery.data.repository.lastSyncStatus ?? "not_started"} job={jobQuery.data?.job ?? null} />
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <RepositoryStatsCards
+                pullRequestCount={repoQuery.data.repository.pullRequestCount ?? 0}
+                issueCount={repoQuery.data.repository.issueCount ?? 0}
+                memoryEntryCount={repoQuery.data.repository.memoryEntryCount ?? 0}
+              />
+            </div>
+            <div>
+              <RepositorySyncStatusCard
+                status={jobQuery.data?.job.status ?? repoQuery.data.repository.lastSyncStatus ?? "not yet synced"}
+                lastSyncTime={repoQuery.data.repository.lastSyncTime ?? null}
+                job={jobQuery.data?.job ?? null}
+              />
+            </div>
+          </div>
         </>
       ) : null}
     </section>

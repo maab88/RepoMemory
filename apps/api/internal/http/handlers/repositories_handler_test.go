@@ -15,12 +15,17 @@ import (
 )
 
 type fakeRepositoryQueryService struct {
+	listForUser  []servicerepositories.Repository
 	repositories []servicerepositories.Repository
 	repository   servicerepositories.Repository
 	job          servicejobs.Job
 	listErr      error
 	repoErr      error
 	syncErr      error
+}
+
+func (f *fakeRepositoryQueryService) ListRepositoriesForUser(_ context.Context, _ uuid.UUID) ([]servicerepositories.Repository, error) {
+	return f.listForUser, nil
 }
 
 func (f *fakeRepositoryQueryService) ListOrganizationRepositories(_ context.Context, _, _ uuid.UUID) ([]servicerepositories.Repository, error) {
@@ -56,6 +61,46 @@ func TestListOrganizationRepositoriesReturnsPersistedRows(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/organizations/"+uuid.New().String()+"/repositories", nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+}
+
+func TestListRepositoriesReturnsPersistedValues(t *testing.T) {
+	lastSync := time.Now().UTC()
+	repoSvc := &fakeRepositoryQueryService{
+		listForUser: []servicerepositories.Repository{
+			{
+				ID:               uuid.New(),
+				OrganizationID:   uuid.New(),
+				GitHubRepoID:     "123",
+				OwnerLogin:       "octocat",
+				Name:             "repo-memory",
+				FullName:         "octocat/repo-memory",
+				Private:          true,
+				DefaultBranch:    "main",
+				HTMLURL:          "https://github.com/octocat/repo-memory",
+				ImportedAt:       time.Now().UTC(),
+				LastSyncStatus:   "succeeded",
+				LastSyncTime:     &lastSync,
+				PullRequestCount: 12,
+				IssueCount:       8,
+			},
+		},
+	}
+	h := NewV1Handler(&noopOrgService{}, &noopGitHubService{}, &fakeJobQueryService{}, repoSvc)
+
+	r := chi.NewRouter()
+	r.Route("/v1", func(r chi.Router) {
+		r.Use(auth.RequireMockAuth(fakeResolver{}))
+		r.Get("/repositories", h.ListRepositories)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/repositories", nil)
 	req.Header.Set("x-user-id", "user-1")
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)

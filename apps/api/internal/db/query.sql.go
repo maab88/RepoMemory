@@ -856,6 +856,99 @@ func (q *Queries) ListRepositorySummariesForOrganization(ctx context.Context, or
 	return items, nil
 }
 
+const listRepositorySummariesForUser = `-- name: ListRepositorySummariesForUser :many
+SELECT
+  r.id,
+  r.organization_id,
+  r.github_repo_id,
+  r.owner_login,
+  r.name,
+  r.full_name,
+  r.private,
+  r.default_branch,
+  r.html_url,
+  r.description,
+  r.imported_at,
+  rss.last_sync_status,
+  rss.last_successful_sync_at AS last_sync_time,
+  (
+    SELECT COUNT(*)
+    FROM pull_requests pr
+    WHERE pr.repository_id = r.id
+  )::INT AS pull_request_count,
+  (
+    SELECT COUNT(*)
+    FROM issues i
+    WHERE i.repository_id = r.id
+  )::INT AS issue_count,
+  (
+    SELECT COUNT(*)
+    FROM memory_entries me
+    WHERE me.repository_id = r.id
+  )::INT AS memory_entry_count
+FROM repositories r
+INNER JOIN memberships m ON m.organization_id = r.organization_id
+LEFT JOIN repository_sync_states rss ON rss.repository_id = r.id
+WHERE m.user_id = $1
+ORDER BY r.imported_at DESC, r.created_at DESC
+`
+
+type ListRepositorySummariesForUserRow struct {
+	ID               uuid.UUID          `json:"id"`
+	OrganizationID   uuid.UUID          `json:"organization_id"`
+	GithubRepoID     int64              `json:"github_repo_id"`
+	OwnerLogin       string             `json:"owner_login"`
+	Name             string             `json:"name"`
+	FullName         string             `json:"full_name"`
+	Private          bool               `json:"private"`
+	DefaultBranch    string             `json:"default_branch"`
+	HtmlUrl          string             `json:"html_url"`
+	Description      pgtype.Text        `json:"description"`
+	ImportedAt       pgtype.Timestamptz `json:"imported_at"`
+	LastSyncStatus   pgtype.Text        `json:"last_sync_status"`
+	LastSyncTime     pgtype.Timestamptz `json:"last_sync_time"`
+	PullRequestCount int32              `json:"pull_request_count"`
+	IssueCount       int32              `json:"issue_count"`
+	MemoryEntryCount int32              `json:"memory_entry_count"`
+}
+
+func (q *Queries) ListRepositorySummariesForUser(ctx context.Context, userID uuid.UUID) ([]ListRepositorySummariesForUserRow, error) {
+	rows, err := q.db.Query(ctx, listRepositorySummariesForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRepositorySummariesForUserRow{}
+	for rows.Next() {
+		var i ListRepositorySummariesForUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.GithubRepoID,
+			&i.OwnerLogin,
+			&i.Name,
+			&i.FullName,
+			&i.Private,
+			&i.DefaultBranch,
+			&i.HtmlUrl,
+			&i.Description,
+			&i.ImportedAt,
+			&i.LastSyncStatus,
+			&i.LastSyncTime,
+			&i.PullRequestCount,
+			&i.IssueCount,
+			&i.MemoryEntryCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateJobStatus = `-- name: UpdateJobStatus :one
 UPDATE jobs
 SET

@@ -33,6 +33,8 @@ export type { OrganizationRepositoriesResponse } from './models/OrganizationRepo
 export type { OrganizationResponse } from './models/OrganizationResponse';
 export type { RepositoryDetailData } from './models/RepositoryDetailData';
 export type { RepositoryDetailResponse } from './models/RepositoryDetailResponse';
+export type { RepositoryListData } from './models/RepositoryListData';
+export type { RepositoryListResponse } from './models/RepositoryListResponse';
 export type { RepositorySummary } from './models/RepositorySummary';
 export type { StartGitHubConnectData } from './models/StartGitHubConnectData';
 export type { StartGitHubConnectRequest } from './models/StartGitHubConnectRequest';

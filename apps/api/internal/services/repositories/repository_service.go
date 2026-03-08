@@ -107,6 +107,37 @@ func (s *Service) ListOrganizationRepositories(ctx context.Context, userID, orga
 	return result, nil
 }
 
+func (s *Service) ListRepositoriesForUser(ctx context.Context, userID uuid.UUID) ([]Repository, error) {
+	summaries, err := s.repoRepository.ListSummariesForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Repository, 0, len(summaries))
+	for _, item := range summaries {
+		result = append(result, Repository{
+			ID:               item.ID,
+			OrganizationID:   item.OrganizationID,
+			GitHubRepoID:     item.GitHubRepoID,
+			OwnerLogin:       item.OwnerLogin,
+			Name:             item.Name,
+			FullName:         item.FullName,
+			Private:          item.Private,
+			DefaultBranch:    item.DefaultBranch,
+			HTMLURL:          item.HTMLURL,
+			Description:      item.Description,
+			ImportedAt:       item.ImportedAt,
+			LastSyncStatus:   item.LastSyncStatus,
+			LastSyncTime:     item.LastSyncTime,
+			PullRequestCount: item.PullRequestCount,
+			IssueCount:       item.IssueCount,
+			MemoryEntryCount: item.MemoryEntryCount,
+		})
+	}
+
+	return result, nil
+}
+
 func (s *Service) GetRepository(ctx context.Context, userID, repositoryID uuid.UUID) (Repository, error) {
 	repoRow, err := s.repoRepository.GetByID(ctx, repositoryID)
 	if err != nil {

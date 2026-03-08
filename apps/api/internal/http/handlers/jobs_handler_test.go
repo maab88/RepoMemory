@@ -45,6 +45,10 @@ func (n *noopGitHubService) ImportRepositories(context.Context, gh.ImportReposit
 
 type noopRepositoryService struct{}
 
+func (n *noopRepositoryService) ListRepositoriesForUser(context.Context, uuid.UUID) ([]servicerepositories.Repository, error) {
+	return nil, nil
+}
+
 func (n *noopRepositoryService) ListOrganizationRepositories(context.Context, uuid.UUID, uuid.UUID) ([]servicerepositories.Repository, error) {
 	return nil, nil
 }

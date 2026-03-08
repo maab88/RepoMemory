@@ -306,6 +306,25 @@ paths:
           $ref: "#/components/responses/ForbiddenError"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/repositories:
+    get:
+      tags:
+        - Repositories
+      operationId: listRepositories
+      summary: List imported repositories for current user
+      security:
+        - MockUserHeader: []
+      responses:
+        "200":
+          description: Imported repositories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/repositories/{repoId}:
     get:
       tags:
@@ -817,6 +836,15 @@ components:
           type: string
           enum:
             - queued
+    RepositoryListData:
+      type: object
+      required:
+        - repositories
+      properties:
+        repositories:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepositorySummary"
     MeResponse:
       type: object
       required:
@@ -896,3 +924,10 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/TriggerSyncData"
+    RepositoryListResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/RepositoryListData"

@@ -54,12 +54,17 @@ func (f *fakeJobService) GetJob(_ context.Context, _, _ uuid.UUID) (servicejobs.
 }
 
 type fakeRepositoryService struct {
+	listForUser  []servicerepositories.Repository
 	repositories []servicerepositories.Repository
 	repository   servicerepositories.Repository
 	job          servicejobs.Job
 	listErr      error
 	getErr       error
 	syncErr      error
+}
+
+func (f *fakeRepositoryService) ListRepositoriesForUser(_ context.Context, _ uuid.UUID) ([]servicerepositories.Repository, error) {
+	return f.listForUser, nil
 }
 
 func (f *fakeRepositoryService) ListOrganizationRepositories(_ context.Context, _, _ uuid.UUID) ([]servicerepositories.Repository, error) {

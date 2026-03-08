@@ -30,6 +30,7 @@ type Querier interface {
 	ListOrganizationsWithRoleForUser(ctx context.Context, userID uuid.UUID) ([]ListOrganizationsWithRoleForUserRow, error)
 	ListRepositoriesForOrganization(ctx context.Context, organizationID uuid.UUID) ([]Repository, error)
 	ListRepositorySummariesForOrganization(ctx context.Context, organizationID uuid.UUID) ([]ListRepositorySummariesForOrganizationRow, error)
+	ListRepositorySummariesForUser(ctx context.Context, userID uuid.UUID) ([]ListRepositorySummariesForUserRow, error)
 	UpdateJobStatus(ctx context.Context, arg UpdateJobStatusParams) (Job, error)
 	UpsertGithubAccount(ctx context.Context, arg UpsertGithubAccountParams) (GithubAccount, error)
 	UpsertIssue(ctx context.Context, arg UpsertIssueParams) (Issue, error)
