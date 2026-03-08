@@ -55,6 +55,51 @@ type IssueSyncRecord struct {
 	SyncedAt          time.Time
 }
 
+type PullRequestForMemory struct {
+	ID             uuid.UUID
+	RepositoryID   uuid.UUID
+	GitHubPrNumber int32
+	Title          string
+	Body           string
+	State          string
+	AuthorLogin    string
+	HTMLURL        string
+	MergedAt       *time.Time
+	ClosedAt       *time.Time
+	Labels         []string
+}
+
+type IssueForMemory struct {
+	ID                uuid.UUID
+	RepositoryID      uuid.UUID
+	GitHubIssueNumber int32
+	Title             string
+	Body              string
+	State             string
+	AuthorLogin       string
+	HTMLURL           string
+	ClosedAt          *time.Time
+	Labels            []string
+}
+
+type MemoryEntryUpsertRecord struct {
+	OrganizationID uuid.UUID
+	RepositoryID   uuid.UUID
+	Type           string
+	Title          string
+	Summary        string
+	WhyItMatters   string
+	ImpactedAreas  []string
+	Risks          []string
+	FollowUps      []string
+	SourceKind     string
+	SourceID       uuid.UUID
+	SourceURL      string
+	GeneratedBy    string
+	SourceType     string
+	SourceRecordID uuid.UUID
+}
+
 var ErrGitHubAccountNotFound = errors.New("github account not found")
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -313,6 +358,212 @@ DO UPDATE SET
 		record.SyncedAt,
 	)
 	return err
+}
+
+func (s *Store) ListPullRequestsForRepository(ctx context.Context, repositoryID uuid.UUID) ([]PullRequestForMemory, error) {
+	const query = `
+SELECT id, repository_id, github_pr_number, title, COALESCE(body, ''), state, COALESCE(author_login, ''), html_url, merged_at, closed_at, labels
+FROM pull_requests
+WHERE repository_id = $1
+ORDER BY updated_at_external DESC, github_pr_number DESC`
+
+	rows, err := s.pool.Query(ctx, query, repositoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]PullRequestForMemory, 0)
+	for rows.Next() {
+		var record PullRequestForMemory
+		var labelsRaw []byte
+		if err := rows.Scan(
+			&record.ID,
+			&record.RepositoryID,
+			&record.GitHubPrNumber,
+			&record.Title,
+			&record.Body,
+			&record.State,
+			&record.AuthorLogin,
+			&record.HTMLURL,
+			&record.MergedAt,
+			&record.ClosedAt,
+			&labelsRaw,
+		); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(labelsRaw, &record.Labels); err != nil {
+			return nil, err
+		}
+		result = append(result, record)
+	}
+	return result, rows.Err()
+}
+
+func (s *Store) ListIssuesForRepository(ctx context.Context, repositoryID uuid.UUID) ([]IssueForMemory, error) {
+	const query = `
+SELECT id, repository_id, github_issue_number, title, COALESCE(body, ''), state, COALESCE(author_login, ''), html_url, closed_at, labels
+FROM issues
+WHERE repository_id = $1
+ORDER BY updated_at_external DESC, github_issue_number DESC`
+
+	rows, err := s.pool.Query(ctx, query, repositoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]IssueForMemory, 0)
+	for rows.Next() {
+		var record IssueForMemory
+		var labelsRaw []byte
+		if err := rows.Scan(
+			&record.ID,
+			&record.RepositoryID,
+			&record.GitHubIssueNumber,
+			&record.Title,
+			&record.Body,
+			&record.State,
+			&record.AuthorLogin,
+			&record.HTMLURL,
+			&record.ClosedAt,
+			&labelsRaw,
+		); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(labelsRaw, &record.Labels); err != nil {
+			return nil, err
+		}
+		result = append(result, record)
+	}
+	return result, rows.Err()
+}
+
+func (s *Store) UpsertMemoryEntryForSource(ctx context.Context, record MemoryEntryUpsertRecord) (uuid.UUID, bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	defer func() {
+		_ = tx.Rollback(context.Background())
+	}()
+
+	const findQuery = `
+SELECT me.id
+FROM memory_entries me
+INNER JOIN memory_entry_sources mes ON mes.memory_entry_id = me.id
+WHERE me.repository_id = $1
+  AND me.type = $2
+  AND mes.source_type = $3
+  AND mes.source_record_id = $4
+LIMIT 1`
+
+	var existingID uuid.UUID
+	findErr := tx.QueryRow(ctx, findQuery, record.RepositoryID, record.Type, record.SourceType, record.SourceRecordID).Scan(&existingID)
+	created := false
+
+	impactedAreas, err := json.Marshal(record.ImpactedAreas)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	risks, err := json.Marshal(record.Risks)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	followUps, err := json.Marshal(record.FollowUps)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+
+	if findErr == nil {
+		const updateQuery = `
+UPDATE memory_entries
+SET
+  title = $2,
+  summary = $3,
+  why_it_matters = $4,
+  impacted_areas = $5,
+  risks = $6,
+  follow_ups = $7,
+  source_kind = $8,
+  source_id = $9,
+  source_url = $10,
+  generated_by = $11,
+  updated_at = NOW()
+WHERE id = $1`
+		if _, err := tx.Exec(ctx, updateQuery,
+			existingID,
+			record.Title,
+			record.Summary,
+			nullIfEmpty(record.WhyItMatters),
+			impactedAreas,
+			risks,
+			followUps,
+			nullIfEmpty(record.SourceKind),
+			record.SourceID,
+			nullIfEmpty(record.SourceURL),
+			record.GeneratedBy,
+		); err != nil {
+			return uuid.Nil, false, err
+		}
+	} else {
+		if !errors.Is(findErr, pgx.ErrNoRows) {
+			return uuid.Nil, false, findErr
+		}
+		const insertQuery = `
+INSERT INTO memory_entries (
+  organization_id,
+  repository_id,
+  type,
+  title,
+  summary,
+  why_it_matters,
+  impacted_areas,
+  risks,
+  follow_ups,
+  source_kind,
+  source_id,
+  source_url,
+  generated_by,
+  updated_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()
+)
+RETURNING id`
+		if err := tx.QueryRow(ctx, insertQuery,
+			record.OrganizationID,
+			record.RepositoryID,
+			record.Type,
+			record.Title,
+			record.Summary,
+			nullIfEmpty(record.WhyItMatters),
+			impactedAreas,
+			risks,
+			followUps,
+			nullIfEmpty(record.SourceKind),
+			record.SourceID,
+			nullIfEmpty(record.SourceURL),
+			record.GeneratedBy,
+		).Scan(&existingID); err != nil {
+			return uuid.Nil, false, err
+		}
+		created = true
+	}
+
+	const linkQuery = `
+INSERT INTO memory_entry_sources (memory_entry_id, source_type, source_record_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (memory_entry_id, source_type, source_record_id)
+DO NOTHING`
+	if _, err := tx.Exec(ctx, linkQuery, existingID, record.SourceType, record.SourceRecordID); err != nil {
+		return uuid.Nil, false, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, false, err
+	}
+
+	return existingID, created, nil
 }
 
 func nullIfEmpty(value string) any {

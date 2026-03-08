@@ -33,9 +33,11 @@ func RunAsynqServer(ctx context.Context, cfg config.Config) error {
 	store := jobs.NewStore(pool)
 	githubSyncClient := services.NewHTTPGitHubSyncClient(cfg.GitHubAPIBase)
 	initialSyncService := services.NewGitHubSyncService(store, githubSyncClient)
+	memoryGenerator := services.NewDeterministicMemoryGenerator()
+	memoryGenerationService := services.NewMemoryGenerationService(store, memoryGenerator)
 	initialSyncHandler := handlers.NewRepoInitialSyncHandler(store, initialSyncService)
 	incrementalHandler := handlers.NewRepoIncrementalSyncHandler()
-	generateMemoryHandler := handlers.NewGenerateMemoryHandler()
+	generateMemoryHandler := handlers.NewGenerateMemoryHandler(store, memoryGenerationService)
 	generateDigestHandler := handlers.NewGenerateDigestHandler()
 	hotspotsHandler := handlers.NewRecalculateHotspotsHandler()
 
