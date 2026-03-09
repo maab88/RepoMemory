@@ -35,4 +35,29 @@ describe("MemoryCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open detail" }));
     expect(onOpen).toHaveBeenCalledWith("mem-1");
   });
+
+  it("renders hotspot type label", () => {
+    render(
+      <MemoryCard
+        entry={{
+          id: "mem-2",
+          repositoryId: "repo-1",
+          organizationId: "org-1",
+          type: "hotspot",
+          title: "Recurring sync instability",
+          summary: "Multiple recent sync issues and PRs indicate churn.",
+          whyItMatters: "",
+          impactedAreas: ["sync"],
+          risks: [],
+          followUps: [],
+          generatedBy: "deterministic",
+          sourceUrl: "",
+          createdAt: "2026-03-08T10:00:00Z",
+        }}
+        onOpen={() => {}}
+      />
+    );
+
+    expect(screen.getByText("Hotspot")).toBeInTheDocument();
+  });
 });

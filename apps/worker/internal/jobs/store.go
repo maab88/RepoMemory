@@ -481,6 +481,84 @@ ORDER BY updated_at_external DESC, github_issue_number DESC`
 	return result, rows.Err()
 }
 
+func (s *Store) ListRecentPullRequestsForHotspots(ctx context.Context, repositoryID uuid.UUID, since time.Time) ([]PullRequestForHotspot, error) {
+	const query = `
+SELECT id, repository_id, github_pr_number, title, COALESCE(body, ''), state, html_url, labels, updated_at_external
+FROM pull_requests
+WHERE repository_id = $1
+  AND updated_at_external >= $2
+ORDER BY updated_at_external DESC, github_pr_number DESC`
+
+	rows, err := s.pool.Query(ctx, query, repositoryID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]PullRequestForHotspot, 0)
+	for rows.Next() {
+		var record PullRequestForHotspot
+		var labelsRaw []byte
+		if err := rows.Scan(
+			&record.ID,
+			&record.RepositoryID,
+			&record.GitHubPrNumber,
+			&record.Title,
+			&record.Body,
+			&record.State,
+			&record.HTMLURL,
+			&labelsRaw,
+			&record.UpdatedAtExternal,
+		); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(labelsRaw, &record.Labels); err != nil {
+			return nil, err
+		}
+		result = append(result, record)
+	}
+	return result, rows.Err()
+}
+
+func (s *Store) ListRecentIssuesForHotspots(ctx context.Context, repositoryID uuid.UUID, since time.Time) ([]IssueForHotspot, error) {
+	const query = `
+SELECT id, repository_id, github_issue_number, title, COALESCE(body, ''), state, html_url, labels, updated_at_external
+FROM issues
+WHERE repository_id = $1
+  AND updated_at_external >= $2
+ORDER BY updated_at_external DESC, github_issue_number DESC`
+
+	rows, err := s.pool.Query(ctx, query, repositoryID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]IssueForHotspot, 0)
+	for rows.Next() {
+		var record IssueForHotspot
+		var labelsRaw []byte
+		if err := rows.Scan(
+			&record.ID,
+			&record.RepositoryID,
+			&record.GitHubIssueNumber,
+			&record.Title,
+			&record.Body,
+			&record.State,
+			&record.HTMLURL,
+			&labelsRaw,
+			&record.UpdatedAtExternal,
+		); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(labelsRaw, &record.Labels); err != nil {
+			return nil, err
+		}
+		result = append(result, record)
+	}
+	return result, rows.Err()
+}
+
 func (s *Store) UpsertMemoryEntryForSource(ctx context.Context, record MemoryEntryUpsertRecord) (uuid.UUID, bool, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -606,6 +684,115 @@ DO NOTHING`
 	}
 
 	return existingID, created, nil
+}
+
+func (s *Store) UpsertHotspotMemoryEntry(ctx context.Context, record HotspotMemoryUpsertRecord) (uuid.UUID, bool, error) {
+	const findQuery = `
+SELECT id
+FROM memory_entries
+WHERE repository_id = $1
+  AND type = 'hotspot'
+  AND source_kind = $2
+LIMIT 1`
+
+	var entryID uuid.UUID
+	findErr := s.pool.QueryRow(ctx, findQuery, record.RepositoryID, record.HotspotKey).Scan(&entryID)
+	created := errors.Is(findErr, pgx.ErrNoRows)
+	if findErr != nil && !created {
+		return uuid.Nil, false, findErr
+	}
+
+	impactedAreas, err := json.Marshal(record.ImpactedAreas)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	risks, err := json.Marshal(record.Risks)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	followUps, err := json.Marshal(record.FollowUps)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+
+	if created {
+		const insertQuery = `
+INSERT INTO memory_entries (
+  organization_id,
+  repository_id,
+  type,
+  title,
+  summary,
+  why_it_matters,
+  impacted_areas,
+  risks,
+  follow_ups,
+  source_kind,
+  source_id,
+  source_url,
+  generated_by,
+  updated_at
+) VALUES (
+  $1, $2, 'hotspot', $3, $4, $5, $6, $7, $8, $9, NULL, $10, $11, NOW()
+)
+RETURNING id`
+		if err := s.pool.QueryRow(ctx, insertQuery,
+			record.OrganizationID,
+			record.RepositoryID,
+			record.Title,
+			record.Summary,
+			nullIfEmpty(record.WhyItMatters),
+			impactedAreas,
+			risks,
+			followUps,
+			record.HotspotKey,
+			nullIfEmpty(record.SourceURL),
+			record.GeneratedBy,
+		).Scan(&entryID); err != nil {
+			return uuid.Nil, false, err
+		}
+		return entryID, true, nil
+	}
+
+	const updateQuery = `
+UPDATE memory_entries
+SET
+  title = $2,
+  summary = $3,
+  why_it_matters = $4,
+  impacted_areas = $5,
+  risks = $6,
+  follow_ups = $7,
+  source_url = $8,
+  generated_by = $9,
+  updated_at = NOW()
+WHERE id = $1`
+	if _, err := s.pool.Exec(ctx, updateQuery,
+		entryID,
+		record.Title,
+		record.Summary,
+		nullIfEmpty(record.WhyItMatters),
+		impactedAreas,
+		risks,
+		followUps,
+		nullIfEmpty(record.SourceURL),
+		record.GeneratedBy,
+	); err != nil {
+		return uuid.Nil, false, err
+	}
+
+	return entryID, false, nil
+}
+
+func (s *Store) LinkMemoryEntrySource(ctx context.Context, memoryEntryID uuid.UUID, sourceType string, sourceRecordID uuid.UUID) error {
+	const query = `
+INSERT INTO memory_entry_sources (memory_entry_id, source_type, source_record_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (memory_entry_id, source_type, source_record_id)
+DO NOTHING`
+
+	_, err := s.pool.Exec(ctx, query, memoryEntryID, sourceType, sourceRecordID)
+	return err
 }
 
 func (s *Store) ListPullRequestsForDigestPeriod(ctx context.Context, repositoryID uuid.UUID, periodStart, periodEnd time.Time) ([]PullRequestForDigest, error) {

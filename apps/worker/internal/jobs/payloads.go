@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -51,6 +52,44 @@ type RepoRecalculateHotspotsPayload struct {
 	RepositoryID      uuid.UUID `json:"repositoryId"`
 	OrganizationID    uuid.UUID `json:"organizationId"`
 	TriggeredByUserID uuid.UUID `json:"triggeredByUserId"`
+}
+
+type PullRequestForHotspot struct {
+	ID                uuid.UUID
+	RepositoryID      uuid.UUID
+	GitHubPrNumber    int32
+	Title             string
+	Body              string
+	State             string
+	HTMLURL           string
+	Labels            []string
+	UpdatedAtExternal time.Time
+}
+
+type IssueForHotspot struct {
+	ID                uuid.UUID
+	RepositoryID      uuid.UUID
+	GitHubIssueNumber int32
+	Title             string
+	Body              string
+	State             string
+	HTMLURL           string
+	Labels            []string
+	UpdatedAtExternal time.Time
+}
+
+type HotspotMemoryUpsertRecord struct {
+	OrganizationID uuid.UUID
+	RepositoryID   uuid.UUID
+	HotspotKey     string
+	Title          string
+	Summary        string
+	WhyItMatters   string
+	ImpactedAreas  []string
+	Risks          []string
+	FollowUps      []string
+	SourceURL      string
+	GeneratedBy    string
 }
 
 type TaskEnvelope[T any] struct {
