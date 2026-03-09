@@ -8,6 +8,10 @@ import (
 type Config struct {
 	Port               string
 	Env                string
+	AuthMode           string
+	AuthJWTSecret      string
+	AuthJWTIssuer      string
+	AuthJWTAudience    string
 	DatabaseURL        string
 	RedisAddr          string
 	GitHubClientID     string
@@ -30,6 +34,18 @@ func Load() Config {
 	env := os.Getenv("API_ENV")
 	if env == "" {
 		env = "development"
+	}
+	authMode := os.Getenv("API_AUTH_MODE")
+	if authMode == "" {
+		authMode = "jwt"
+	}
+	authJWTIssuer := os.Getenv("API_AUTH_JWT_ISSUER")
+	if authJWTIssuer == "" {
+		authJWTIssuer = "repomemory-web"
+	}
+	authJWTAudience := os.Getenv("API_AUTH_JWT_AUDIENCE")
+	if authJWTAudience == "" {
+		authJWTAudience = "repomemory-api"
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -78,6 +94,10 @@ func Load() Config {
 	return Config{
 		Port:               port,
 		Env:                env,
+		AuthMode:           authMode,
+		AuthJWTSecret:      os.Getenv("API_AUTH_JWT_SECRET"),
+		AuthJWTIssuer:      authJWTIssuer,
+		AuthJWTAudience:    authJWTAudience,
 		DatabaseURL:        databaseURL,
 		RedisAddr:          redisAddr,
 		GitHubClientID:     os.Getenv("GITHUB_CLIENT_ID"),

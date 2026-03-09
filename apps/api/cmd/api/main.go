@@ -45,6 +45,7 @@ func main() {
 
 	queries := db.New(pool)
 	userResolver := auth.NewMockUserResolver(queries)
+	userMapper := auth.NewUserMapper(queries)
 	orgStore := org.NewStore(pool, queries)
 	orgService := org.NewService(orgStore)
 	githubStore := gh.NewAccountRepository(queries)
@@ -89,8 +90,24 @@ func main() {
 	searchService := servicesearch.NewService(queries, repositoryRepository, memorySearchRepository)
 	v1Handler := handlers.NewV1Handler(orgService, githubService, jobService, repositoryService, memoryService, searchService)
 
+	var authMiddleware func(next http.Handler) http.Handler
+	if strings.EqualFold(cfg.AuthMode, "mock") {
+		log.Warn().Msg("API auth mode is mock; this mode should only be used for local development and tests")
+		authMiddleware = auth.RequireMockAuth(userResolver)
+	} else {
+		validator, err := auth.NewJWTIdentityValidator(auth.JWTValidatorConfig{
+			Secret:   cfg.AuthJWTSecret,
+			Issuer:   cfg.AuthJWTIssuer,
+			Audience: cfg.AuthJWTAudience,
+		})
+		if err != nil {
+			log.Fatal().Err(err).Msg("invalid api auth jwt configuration")
+		}
+		authMiddleware = auth.RequireBearerAuth(validator, userMapper)
+	}
+
 	h := router.New(router.Dependencies{
-		AuthMiddleware: auth.RequireMockAuth(userResolver),
+		AuthMiddleware: authMiddleware,
 		V1Handler:      v1Handler,
 	})
 

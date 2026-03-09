@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -11,6 +12,7 @@ type CurrentUser struct {
 	Email       string    `json:"email,omitempty"`
 	DisplayName string    `json:"displayName"`
 	AvatarURL   string    `json:"avatarUrl,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 type contextKey string

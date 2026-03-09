@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -20,7 +21,12 @@ import (
 type fakeResolver struct{}
 
 func (f fakeResolver) Resolve(_ context.Context, input auth.MockUserInput) (auth.CurrentUser, error) {
-	return auth.CurrentUser{ID: uuid.NewSHA1(uuid.NameSpaceOID, []byte(input.RawID)), DisplayName: "Dev Tester", Email: input.Email}, nil
+	return auth.CurrentUser{
+		ID:          uuid.NewSHA1(uuid.NameSpaceOID, []byte(input.RawID)),
+		DisplayName: "Dev Tester",
+		Email:       input.Email,
+		CreatedAt:   time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC),
+	}, nil
 }
 
 type fakeOrgService struct {
@@ -153,6 +159,27 @@ func TestGetMeSuccess(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var payload struct {
+		Data struct {
+			ID          string `json:"id"`
+			Email       string `json:"email"`
+			DisplayName string `json:"displayName"`
+			CreatedAt   string `json:"createdAt"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if payload.Data.Email != "user@example.com" {
+		t.Fatalf("expected email user@example.com, got %s", payload.Data.Email)
+	}
+	if payload.Data.DisplayName != "Dev Tester" {
+		t.Fatalf("expected displayName Dev Tester, got %s", payload.Data.DisplayName)
+	}
+	if payload.Data.CreatedAt == "" {
+		t.Fatal("expected createdAt in /v1/me response")
 	}
 }
 

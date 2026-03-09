@@ -29,6 +29,20 @@ RepoMemory is a SaaS MVP that turns GitHub engineering activity into searchable 
    - `make dev-worker`
    - `make dev-web`
 
+### Auth setup (required)
+RepoMemory now uses Auth.js in the web app and bearer token validation in the Go API.
+
+- Set the same shared JWT secret in both:
+  - `apps/web/.env.local` -> `API_AUTH_JWT_SECRET`
+  - `apps/api/.env` -> `API_AUTH_JWT_SECRET`
+- Configure API auth mode:
+  - `API_AUTH_MODE=jwt` (default, recommended)
+- Configure Auth.js secret in web:
+  - `AUTH_SECRET=<long-random-secret>`
+- Configure sign-in provider:
+  - GitHub OAuth (recommended): `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`
+  - Optional local dev credentials: set `AUTH_ENABLE_DEV_CREDENTIALS=true`
+
 ## Services
 - Web: http://localhost:3000
 - API health: http://localhost:8080/health
@@ -109,6 +123,10 @@ Import behavior:
 ### API (`apps/api/.env`)
 - `API_PORT`: API HTTP port
 - `API_ENV`: environment name
+- `API_AUTH_MODE`: auth mode (`jwt` default, `mock` for explicit local/test opt-in only)
+- `API_AUTH_JWT_SECRET`: HMAC secret used to validate bearer tokens
+- `API_AUTH_JWT_ISSUER`: expected JWT issuer (default `repomemory-web`)
+- `API_AUTH_JWT_AUDIENCE`: expected JWT audience (default `repomemory-api`)
 - `DATABASE_URL`: Postgres connection string
 - `GITHUB_CLIENT_ID`: GitHub OAuth app client ID
 - `GITHUB_CLIENT_SECRET`: GitHub OAuth app client secret
@@ -122,6 +140,15 @@ Import behavior:
 
 ### Web (`apps/web/.env.local`)
 - `NEXT_PUBLIC_API_BASE_URL`: browser-facing API base URL
+- `NEXTAUTH_URL`: web base URL (e.g. `http://localhost:3000`)
+- `AUTH_SECRET`: Auth.js secret
+- `AUTH_GITHUB_ID`: GitHub OAuth client id for sign-in
+- `AUTH_GITHUB_SECRET`: GitHub OAuth client secret for sign-in
+- `API_AUTH_JWT_SECRET`: same value as API `API_AUTH_JWT_SECRET`
+- `API_AUTH_JWT_ISSUER` (optional): token issuer (default `repomemory-web`)
+- `API_AUTH_JWT_AUDIENCE` (optional): token audience (default `repomemory-api`)
+- `AUTH_ENABLE_DEV_CREDENTIALS` (optional): `true` to enable local dev credentials provider
+- `AUTH_DEV_EMAIL`, `AUTH_DEV_PASSWORD`, `AUTH_DEV_NAME` (optional): local dev sign-in values
 
 ### API tests
 - `TEST_DATABASE_URL` (optional): Postgres connection string for integration tests.

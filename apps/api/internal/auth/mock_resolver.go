@@ -57,6 +57,9 @@ func (r *MockUserResolver) Resolve(ctx context.Context, input MockUserInput) (Cu
 	if user.AvatarUrl.Valid {
 		out.AvatarURL = user.AvatarUrl.String
 	}
+	if user.CreatedAt.Valid {
+		out.CreatedAt = user.CreatedAt.Time
+	}
 	return out, nil
 }
 
