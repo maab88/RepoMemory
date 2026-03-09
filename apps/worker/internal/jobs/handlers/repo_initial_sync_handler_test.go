@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/maab88/repomemory/apps/worker/internal/jobs"
+	"github.com/maab88/repomemory/apps/worker/internal/services"
 )
 
 type fakeStore struct {
@@ -98,5 +100,17 @@ func TestRepoInitialSyncFailurePersistsError(t *testing.T) {
 	}
 	if store.lastSyncError == nil || *store.lastSyncError == "" {
 		t.Fatal("expected sync error to be recorded")
+	}
+}
+
+func TestSyncFailureMessageClassifiesRecoverableErrors(t *testing.T) {
+	reconnect := syncFailureMessage(services.ErrGitHubReconnectRequired)
+	if !strings.HasPrefix(reconnect, "GITHUB_RECONNECT_REQUIRED") {
+		t.Fatalf("expected reconnect classification, got %q", reconnect)
+	}
+
+	rate := syncFailureMessage(services.ErrGitHubRateLimited)
+	if !strings.HasPrefix(rate, "GITHUB_RATE_LIMITED") {
+		t.Fatalf("expected rate-limit classification, got %q", rate)
 	}
 }

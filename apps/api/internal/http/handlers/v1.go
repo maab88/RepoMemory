@@ -305,17 +305,17 @@ func (h *V1Handler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, gh.ErrOAuthCodeMissing), errors.Is(err, gh.ErrOAuthStateMissing), errors.Is(err, gh.ErrInvalidState), errors.Is(err, gh.ErrStateExpired):
-			response.WriteError(w, http.StatusBadRequest, "bad_request", "invalid github oauth callback request")
+			response.WriteError(w, http.StatusBadRequest, "OAUTH_CALLBACK_FAILED", "GitHub callback failed. Please retry connecting GitHub.")
 		case errors.Is(err, gh.ErrStateUserMismatch), errors.Is(err, gh.ErrOrganizationAccessDenied):
-			response.WriteError(w, http.StatusForbidden, "forbidden", "access denied")
+			response.WriteError(w, http.StatusForbidden, "OAUTH_CALLBACK_FAILED", "GitHub callback failed. Please retry connecting GitHub.")
 		case errors.Is(err, gh.ErrTokenExchangeFailed):
-			response.WriteError(w, http.StatusBadGateway, "github_oauth_exchange_failed", "github oauth token exchange failed")
+			response.WriteError(w, http.StatusBadGateway, "OAUTH_CALLBACK_FAILED", "GitHub callback failed. Please retry connecting GitHub.")
 		case errors.Is(err, gh.ErrGitHubUserFetchFailed):
-			response.WriteError(w, http.StatusBadGateway, "github_user_fetch_failed", "failed to fetch github user")
+			response.WriteError(w, http.StatusBadGateway, "OAUTH_CALLBACK_FAILED", "GitHub callback failed. Please retry connecting GitHub.")
 		case errors.Is(err, gh.ErrOAuthNotConfigured):
 			response.WriteError(w, http.StatusServiceUnavailable, "github_oauth_not_configured", "github oauth is not configured")
 		default:
-			response.WriteError(w, http.StatusInternalServerError, "internal_error", "failed to complete github oauth callback")
+			response.WriteError(w, http.StatusInternalServerError, "OAUTH_CALLBACK_FAILED", "GitHub callback failed. Please retry connecting GitHub.")
 		}
 		return
 	}
@@ -334,7 +334,11 @@ func (h *V1Handler) ListGitHubRepositories(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		switch {
 		case errors.Is(err, gh.ErrGitHubNotConnected):
-			response.WriteError(w, http.StatusBadRequest, "github_not_connected", "github account is not connected")
+			response.WriteError(w, http.StatusUnauthorized, "GITHUB_RECONNECT_REQUIRED", "GitHub connection expired or missing. Please reconnect.")
+		case errors.Is(err, gh.ErrGitHubReconnectRequired):
+			response.WriteError(w, http.StatusUnauthorized, "GITHUB_RECONNECT_REQUIRED", "GitHub token expired. Please reconnect your GitHub account.")
+		case errors.Is(err, gh.ErrGitHubRateLimited):
+			response.WriteError(w, http.StatusTooManyRequests, "GITHUB_RATE_LIMITED", "GitHub API rate limit reached. Please retry shortly.")
 		default:
 			response.WriteError(w, http.StatusBadGateway, "github_repositories_fetch_failed", "failed to fetch github repositories")
 		}

@@ -12,7 +12,8 @@ export class RequestError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
-    message: string
+    message: string,
+    public readonly requestId?: string
   ) {
     super(message);
   }
@@ -28,14 +29,17 @@ function isErrorResponse(value: unknown): value is ErrorResponse {
     return false;
   }
 
-  const apiError = maybe.error as { code?: unknown; message?: unknown };
+  const apiError = maybe.error as { code?: unknown; message?: unknown; requestId?: unknown };
+  if (apiError.requestId !== undefined && typeof apiError.requestId !== "string") {
+    return false;
+  }
   return typeof apiError.code === "string" && typeof apiError.message === "string";
 }
 
 function toRequestError(error: unknown): RequestError {
   if (error instanceof GeneratedApiError) {
     if (isErrorResponse(error.body)) {
-      return new RequestError(error.status, error.body.error.code, error.body.error.message);
+      return new RequestError(error.status, error.body.error.code, error.body.error.message, error.body.error.requestId);
     }
 
     return new RequestError(error.status, "request_failed", error.message);

@@ -7,6 +7,10 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { DigestDetail } from "@/components/digests/digest-detail";
 import { DigestList } from "@/components/digests/digest-list";
+import { JobFailureBanner } from "@/components/jobs/job-failure-banner";
+import { ErrorState } from "@/components/shared/error-state";
+import { RetryBanner } from "@/components/shared/retry-banner";
+import { mapApiError } from "@/lib/errors/map-api-error";
 import { useGenerateDigest } from "@/lib/hooks/use-generate-digest";
 import { useJobStatus } from "@/lib/hooks/use-job-status";
 import { useRepositoryDetail } from "@/lib/hooks/use-repository-detail";
@@ -53,8 +57,8 @@ export default function RepositoryDigestsPage() {
     try {
       const response = await generateDigest.mutateAsync(repoId);
       setDigestJobID(response.jobId);
-    } catch {
-      setDigestError("Could not queue digest generation.");
+    } catch (error) {
+      setDigestError(mapApiError(error).message);
     }
   };
 
@@ -91,7 +95,7 @@ export default function RepositoryDigestsPage() {
       ) : null}
 
       {digestsQuery.error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">Failed to load digests.</div>
+        <ErrorState {...mapApiError(digestsQuery.error)} />
       ) : null}
 
       {!digestsQuery.isLoading && !digestsQuery.error && (digestsQuery.data?.digests.length ?? 0) === 0 ? (
@@ -114,6 +118,21 @@ export default function RepositoryDigestsPage() {
           <DigestList digests={digestsQuery.data?.digests ?? []} selectedDigestId={activeDigestID} onSelectDigest={setActiveDigestID} />
           <DigestDetail digest={selectedDigest} />
         </div>
+      ) : null}
+      {digestJobQuery.data?.job.status === "failed" ? <JobFailureBanner message={digestJobQuery.data.job.lastError} /> : null}
+      {digestJobQuery.timedOut ? (
+        <RetryBanner
+          message="Digest generation is taking longer than expected and polling timed out."
+          onRetry={() => {
+            setDigestJobID((current) => {
+              if (!current) {
+                return current;
+              }
+              window.setTimeout(() => setDigestJobID(current), 0);
+              return null;
+            });
+          }}
+        />
       ) : null}
     </section>
   );

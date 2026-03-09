@@ -5,9 +5,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { JobFailureBanner } from "@/components/jobs/job-failure-banner";
 import { RepositoryMemoryActions } from "@/components/repositories/repository-memory-actions";
 import { RepositorySyncStatusCard } from "@/components/repositories/repository-sync-status-card";
 import { RepositoryStatsCards } from "@/components/repositories/repository-stats-cards";
+import { ErrorState } from "@/components/shared/error-state";
+import { RetryBanner } from "@/components/shared/retry-banner";
+import { mapApiError } from "@/lib/errors/map-api-error";
 import { useGenerateDigest } from "@/lib/hooks/use-generate-digest";
 import { useGenerateMemory } from "@/lib/hooks/use-generate-memory";
 import { useJobStatus } from "@/lib/hooks/use-job-status";
@@ -24,6 +28,7 @@ export default function RepositoryDetailPage() {
   const [activeJobID, setActiveJobID] = useState<string | null>(null);
   const [memoryJobID, setMemoryJobID] = useState<string | null>(null);
   const [digestJobID, setDigestJobID] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [memoryError, setMemoryError] = useState<string | null>(null);
   const [digestError, setDigestError] = useState<string | null>(null);
   const jobQuery = useJobStatus(activeJobID);
@@ -65,8 +70,13 @@ export default function RepositoryDetailPage() {
   }, [digestJobQuery.data?.job.lastError, digestJobQuery.data?.job.status, params.repoId, queryClient]);
 
   const onTriggerSync = async () => {
-    const response = await triggerSync.mutateAsync(params.repoId);
-    setActiveJobID(response.jobId);
+    setSyncError(null);
+    try {
+      const response = await triggerSync.mutateAsync(params.repoId);
+      setActiveJobID(response.jobId);
+    } catch (error) {
+      setSyncError(mapApiError(error).message);
+    }
   };
 
   const onGenerateMemory = async () => {
@@ -93,9 +103,7 @@ export default function RepositoryDetailPage() {
     <section className="space-y-6">
       {repoQuery.isLoading ? <div className="h-40 animate-pulse rounded-xl border border-slate-200 bg-white" /> : null}
       {repoQuery.error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          Failed to load repository.
-        </div>
+        <ErrorState {...mapApiError(repoQuery.error)} />
       ) : null}
 
       {repoQuery.data ? (
@@ -142,6 +150,19 @@ export default function RepositoryDetailPage() {
                 {digestJobQuery.data?.job.status ? <p className="text-xs text-slate-500">Digest job status: {digestJobQuery.data.job.status}</p> : null}
                 {digestError ? <p className="text-sm text-rose-700">{digestError}</p> : null}
               </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {syncError ? <ErrorState title="Sync failed to queue" message={syncError} /> : null}
+              {jobQuery.data?.job.status === "failed" ? <JobFailureBanner message={jobQuery.data.job.lastError} /> : null}
+              {jobQuery.timedOut ? (
+                <RetryBanner
+                  message="Sync is still running but status polling timed out. You can continue working and retry status polling."
+                  onRetry={() => {
+                    setActiveJobID(null);
+                    window.setTimeout(() => setActiveJobID(jobQuery.data?.job.id ?? null), 0);
+                  }}
+                />
+              ) : null}
             </div>
           </article>
 

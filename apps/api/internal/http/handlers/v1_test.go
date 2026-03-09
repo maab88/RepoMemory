@@ -302,6 +302,17 @@ func TestGitHubCallbackMissingCode(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
 	}
+	var payload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if payload.Error.Code != "OAUTH_CALLBACK_FAILED" {
+		t.Fatalf("expected OAUTH_CALLBACK_FAILED, got %s", payload.Error.Code)
+	}
 }
 
 func TestGitHubCallbackInvalidState(t *testing.T) {
@@ -414,8 +425,43 @@ func TestListGitHubRepositoriesNotConnected(t *testing.T) {
 
 	router.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", rr.Code)
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+	var payload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if payload.Error.Code != "GITHUB_RECONNECT_REQUIRED" {
+		t.Fatalf("expected GITHUB_RECONNECT_REQUIRED, got %s", payload.Error.Code)
+	}
+}
+
+func TestListGitHubRepositoriesRateLimited(t *testing.T) {
+	router := newTestRouterWithGitHub(&fakeOrgService{}, &fakeGitHubOAuthService{listErr: gh.ErrGitHubRateLimited})
+	req := httptest.NewRequest(http.MethodGet, "/v1/github/repositories", nil)
+	req.Header.Set("x-user-id", "user-1")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d", rr.Code)
+	}
+	var payload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if payload.Error.Code != "GITHUB_RATE_LIMITED" {
+		t.Fatalf("expected GITHUB_RATE_LIMITED, got %s", payload.Error.Code)
 	}
 }
 

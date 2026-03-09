@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/maab88/repomemory/apps/worker/internal/jobs"
+	"github.com/maab88/repomemory/apps/worker/internal/services"
 )
 
 type RepoInitialSyncStore interface {
@@ -53,7 +55,7 @@ func (h *RepoInitialSyncHandler) Handle(ctx context.Context, task *asynq.Task) e
 	_ = h.store.UpdateRepositorySyncStatus(ctx, envelope.Payload.RepositoryID, jobs.StatusRunning, nil, nil)
 
 	if err := h.service.Run(ctx, envelope.Payload); err != nil {
-		lastErr := err.Error()
+		lastErr := syncFailureMessage(err)
 		retryCount, okRetry := asynq.GetRetryCount(ctx)
 		maxRetry, okMax := asynq.GetMaxRetry(ctx)
 		exhausted := okRetry && okMax && retryCount >= maxRetry
@@ -76,6 +78,17 @@ func (h *RepoInitialSyncHandler) Handle(ctx context.Context, task *asynq.Task) e
 	}
 
 	return nil
+}
+
+func syncFailureMessage(err error) string {
+	switch {
+	case errors.Is(err, services.ErrGitHubReconnectRequired):
+		return "GITHUB_RECONNECT_REQUIRED: GitHub token expired or revoked. Reconnect integration and retry sync."
+	case errors.Is(err, services.ErrGitHubRateLimited):
+		return "GITHUB_RATE_LIMITED: GitHub API rate limit reached. Retry sync later."
+	default:
+		return "SYNC_FAILED: repository sync failed. Review worker logs and retry."
+	}
 }
 
 type DefaultRepoInitialSyncService struct{}

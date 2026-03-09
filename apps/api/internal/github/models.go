@@ -19,6 +19,8 @@ var (
 	ErrOrganizationAccessDenied = errors.New("organization access denied")
 	ErrOAuthNotConfigured       = errors.New("github oauth is not configured")
 	ErrGitHubNotConnected       = errors.New("github account is not connected")
+	ErrGitHubReconnectRequired  = errors.New("github reconnect required")
+	ErrGitHubRateLimited        = errors.New("github api rate limited")
 	ErrImportRepositoriesEmpty  = errors.New("repositories payload is empty")
 	ErrInvalidRepositoryPayload = errors.New("invalid repository payload")
 )

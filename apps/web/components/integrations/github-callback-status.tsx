@@ -1,6 +1,8 @@
 "use client";
 
 import { useGitHubCallback } from "@/lib/hooks/use-github-callback";
+import { ErrorState } from "@/components/shared/error-state";
+import { mapApiError } from "@/lib/errors/map-api-error";
 
 export function GitHubCallbackStatus({ code, state }: { code?: string; state?: string }) {
   const query = useGitHubCallback(code, state);
@@ -27,14 +29,20 @@ export function GitHubCallbackStatus({ code, state }: { code?: string; state?: s
   }
 
   if (query.error || !query.data) {
+    const mapped = mapApiError(query.error);
     return (
-      <section className="mx-auto max-w-2xl rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-700">
-        <h2 className="text-xl font-semibold">GitHub connection failed</h2>
-        <p className="mt-2 text-sm">We could not complete the callback. The OAuth state may be invalid or expired.</p>
-        <a href="/settings/integrations/github" className="mt-4 inline-block text-sm font-semibold underline">
-          Retry GitHub connect
-        </a>
-      </section>
+      <div className="mx-auto max-w-2xl">
+        <ErrorState
+          title={mapped.title}
+          message={mapped.message}
+          requestId={mapped.requestId}
+          action={
+            <a href="/settings/integrations/github" className="inline-block text-sm font-semibold underline">
+              Retry GitHub connect
+            </a>
+          }
+        />
+      </div>
     );
   }
 
