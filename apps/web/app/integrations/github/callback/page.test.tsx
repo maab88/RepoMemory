@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 
 import { GitHubCallbackStatus } from "@/components/integrations/github-callback-status";
+import { RequestError } from "@/lib/api-client";
 
 const useGitHubCallbackMock = vi.fn();
 
@@ -35,11 +36,15 @@ describe("GitHub callback states", () => {
   });
 
   it("renders failure and retry action", () => {
-    useGitHubCallbackMock.mockReturnValue({ isPending: false, error: new Error("failed"), data: null });
+    useGitHubCallbackMock.mockReturnValue({
+      isPending: false,
+      error: new RequestError(400, "OAUTH_CALLBACK_FAILED", "callback failed"),
+      data: null,
+    });
 
     render(<GitHubCallbackStatus code="code123" state="state123" />);
 
-    expect(screen.getByRole("heading", { name: "GitHub connection failed" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "GitHub callback failed" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Retry GitHub connect" })).toBeInTheDocument();
   });
 });

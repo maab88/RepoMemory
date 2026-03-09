@@ -140,3 +140,56 @@ func TestGitHubSyncServicePartialFailureAfterPRSync(t *testing.T) {
 		t.Fatal("did not expect issue sync timestamp to be set")
 	}
 }
+
+func TestGitHubSyncServiceEmptyRepositoryIsNoOpSuccess(t *testing.T) {
+	repositoryID := uuid.New()
+	store := &fakeSyncStore{
+		repo: jobs.RepositoryForSync{
+			ID:         repositoryID,
+			OwnerLogin: "octo",
+			Name:       "repo",
+		},
+		token: "token",
+	}
+	client := &fakeGitHubSyncClient{
+		prs:    []GitHubPullRequest{},
+		issues: []GitHubIssue{},
+	}
+
+	service := NewGitHubSyncService(store, client)
+	if err := service.Run(context.Background(), jobs.RepoInitialSyncPayload{RepositoryID: repositoryID, TriggeredByUserID: uuid.New()}); err != nil {
+		t.Fatalf("expected no error for empty repository, got %v", err)
+	}
+	if len(store.prUpserts) != 0 || len(store.issueUpserts) != 0 {
+		t.Fatalf("expected no upserts, got prs=%d issues=%d", len(store.prUpserts), len(store.issueUpserts))
+	}
+}
+
+func TestGitHubSyncServiceOnlyIssuesSucceeds(t *testing.T) {
+	repositoryID := uuid.New()
+	store := &fakeSyncStore{
+		repo: jobs.RepositoryForSync{
+			ID:         repositoryID,
+			OwnerLogin: "octo",
+			Name:       "repo",
+		},
+		token: "token",
+	}
+	client := &fakeGitHubSyncClient{
+		prs: []GitHubPullRequest{},
+		issues: []GitHubIssue{
+			{ID: 2, Number: 2, Title: "issue", State: "open", HTMLURL: "https://github.com/octo/repo/issues/2", CreatedAt: time.Now().Add(-time.Hour), UpdatedAt: time.Now()},
+		},
+	}
+
+	service := NewGitHubSyncService(store, client)
+	if err := service.Run(context.Background(), jobs.RepoInitialSyncPayload{RepositoryID: repositoryID, TriggeredByUserID: uuid.New()}); err != nil {
+		t.Fatalf("expected no error for issues-only repository, got %v", err)
+	}
+	if len(store.prUpserts) != 0 {
+		t.Fatalf("expected no pr upserts, got %d", len(store.prUpserts))
+	}
+	if len(store.issueUpserts) != 1 {
+		t.Fatalf("expected 1 issue upsert, got %d", len(store.issueUpserts))
+	}
+}

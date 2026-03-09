@@ -41,6 +41,10 @@ type tokenExchangeResponse struct {
 	Error       string `json:"error"`
 }
 
+type githubAPIError struct {
+	Message string `json:"message"`
+}
+
 func (c *HTTPGitHubClient) ExchangeCode(ctx context.Context, code, redirectURL string) (GitHubToken, error) {
 	form := url.Values{}
 	form.Set("client_id", c.clientID)
@@ -67,7 +71,7 @@ func (c *HTTPGitHubClient) ExchangeCode(ctx context.Context, code, redirectURL s
 		return GitHubToken{}, err
 	}
 	if resp.StatusCode >= 400 {
-		return GitHubToken{}, fmt.Errorf("github token endpoint returned %d", resp.StatusCode)
+		return GitHubToken{}, classifyGitHubHTTPError(resp.StatusCode, resp.Header, body)
 	}
 
 	var parsed tokenExchangeResponse
@@ -75,7 +79,7 @@ func (c *HTTPGitHubClient) ExchangeCode(ctx context.Context, code, redirectURL s
 		return GitHubToken{}, err
 	}
 	if parsed.Error != "" || parsed.AccessToken == "" {
-		return GitHubToken{}, fmt.Errorf("github token exchange rejected request")
+		return GitHubToken{}, ErrTokenExchangeFailed
 	}
 
 	return GitHubToken{AccessToken: parsed.AccessToken, Scope: parsed.Scope}, nil
@@ -98,7 +102,8 @@ func (c *HTTPGitHubClient) GetViewer(ctx context.Context, accessToken string) (G
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return GitHubUser{}, fmt.Errorf("github user endpoint returned %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return GitHubUser{}, classifyGitHubHTTPError(resp.StatusCode, resp.Header, body)
 	}
 
 	var user GitHubUser
@@ -129,7 +134,8 @@ func (c *HTTPGitHubClient) ListRepositories(ctx context.Context, accessToken str
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("github repositories endpoint returned %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return nil, classifyGitHubHTTPError(resp.StatusCode, resp.Header, body)
 	}
 
 	var payload []struct {
@@ -173,3 +179,30 @@ func (c *HTTPGitHubClient) ListRepositories(ctx context.Context, accessToken str
 }
 
 var _ GitHubClient = (*HTTPGitHubClient)(nil)
+
+func classifyGitHubHTTPError(status int, headers http.Header, body []byte) error {
+	if status == http.StatusUnauthorized {
+		return ErrGitHubReconnectRequired
+	}
+	if status == http.StatusForbidden && isRateLimited(headers, body) {
+		return ErrGitHubRateLimited
+	}
+	if status == http.StatusTooManyRequests {
+		return ErrGitHubRateLimited
+	}
+	return fmt.Errorf("github api error status=%d", status)
+}
+
+func isRateLimited(headers http.Header, body []byte) bool {
+	if headers.Get("X-RateLimit-Remaining") == "0" {
+		return true
+	}
+	var parsed githubAPIError
+	if err := json.Unmarshal(body, &parsed); err == nil {
+		message := strings.ToLower(strings.TrimSpace(parsed.Message))
+		if strings.Contains(message, "rate limit") {
+			return true
+		}
+	}
+	return false
+}

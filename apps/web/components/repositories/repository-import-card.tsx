@@ -6,7 +6,8 @@ import type { ImportedRepository } from "@repomemory/contracts";
 
 import { RepositoryImportTable } from "@/components/repositories/repository-import-table";
 import { RepositorySelector } from "@/components/repositories/repository-selector";
-import { RequestError } from "@/lib/api-client";
+import { ErrorState } from "@/components/shared/error-state";
+import { mapApiError } from "@/lib/errors/map-api-error";
 import { useGitHubRepositories } from "@/lib/hooks/use-github-repositories";
 import { useImportRepositories } from "@/lib/hooks/use-import-repositories";
 import { listOrganizations } from "@/lib/organizations-api";
@@ -28,8 +29,8 @@ export function RepositoryImportCard() {
     return repositories.filter((repo) => selected.has(repo.githubRepoId));
   }, [repositories, selectedIds]);
 
-  const githubNotConnected =
-    reposQuery.error instanceof RequestError && reposQuery.error.code === "github_not_connected";
+  const mappedRepositoriesError = reposQuery.error ? mapApiError(reposQuery.error) : null;
+  const githubReconnectRequired = mappedRepositoriesError?.code === "GITHUB_RECONNECT_REQUIRED";
 
   const importDisabled = importMutation.isPending || selectedRepositories.length === 0 || !organizationId;
 
@@ -82,17 +83,24 @@ export function RepositoryImportCard() {
         </div>
       ) : null}
 
-      {githubNotConnected ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          No GitHub account connected. Go to <a className="font-semibold underline" href="/settings/integrations/github">GitHub integrations</a> first.
-        </div>
+      {githubReconnectRequired ? (
+        <ErrorState
+          title={mappedRepositoriesError?.title ?? "Reconnect GitHub required"}
+          message={mappedRepositoriesError?.message ?? "Reconnect GitHub to continue importing repositories."}
+          requestId={mappedRepositoriesError?.requestId}
+          action={
+            <a className="font-semibold underline" href="/settings/integrations/github">
+              Open GitHub integrations
+            </a>
+          }
+        />
       ) : null}
 
-      {!reposQuery.isPending && !githubNotConnected && repositories.length === 0 ? (
+      {!reposQuery.isPending && !githubReconnectRequired && repositories.length === 0 ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">No repositories found for this GitHub account.</div>
       ) : null}
 
-      {!reposQuery.isPending && !githubNotConnected && repositories.length > 0 ? (
+      {!reposQuery.isPending && !githubReconnectRequired && repositories.length > 0 ? (
         <RepositorySelector repositories={repositories} selectedIds={selectedIds} onSelectionChange={setSelectedIds} />
       ) : null}
 

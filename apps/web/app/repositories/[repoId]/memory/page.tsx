@@ -5,10 +5,14 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { JobFailureBanner } from "@/components/jobs/job-failure-banner";
 import { MemoryDetailDrawer } from "@/components/memory/memory-detail-drawer";
 import { MemoryEmptyState } from "@/components/memory/memory-empty-state";
 import { MemoryFilters } from "@/components/memory/memory-filters";
 import { MemoryTimeline } from "@/components/memory/memory-timeline";
+import { ErrorState } from "@/components/shared/error-state";
+import { RetryBanner } from "@/components/shared/retry-banner";
+import { mapApiError } from "@/lib/errors/map-api-error";
 import { useGenerateMemory } from "@/lib/hooks/use-generate-memory";
 import { useJobStatus } from "@/lib/hooks/use-job-status";
 import { useMemoryDetail } from "@/lib/hooks/use-memory-detail";
@@ -60,8 +64,8 @@ export default function RepositoryMemoryPage() {
     try {
       const response = await generateMemory.mutateAsync(repoId);
       setMemoryJobID(response.jobId);
-    } catch {
-      setGenerationError("Could not queue memory generation.");
+    } catch (error) {
+      setGenerationError(mapApiError(error).message);
     }
   };
 
@@ -95,9 +99,7 @@ export default function RepositoryMemoryPage() {
       ) : null}
 
       {memoryQuery.error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          Failed to load repository memory timeline.
-        </div>
+        <ErrorState {...mapApiError(memoryQuery.error)} />
       ) : null}
 
       {!memoryQuery.isLoading && !memoryQuery.error && (memoryQuery.data?.memoryEntries.length ?? 0) === 0 ? (
@@ -117,6 +119,22 @@ export default function RepositoryMemoryPage() {
       ) : null}
 
       {filteredEntries.length > 0 ? <MemoryTimeline entries={filteredEntries} onOpenDetail={setActiveMemoryID} /> : null}
+
+      {memoryJobQuery.data?.job.status === "failed" ? <JobFailureBanner message={memoryJobQuery.data.job.lastError} /> : null}
+      {memoryJobQuery.timedOut ? (
+        <RetryBanner
+          message="Memory generation is still in progress but polling timed out. Retry polling in a moment."
+          onRetry={() => {
+            setMemoryJobID((current) => {
+              if (!current) {
+                return current;
+              }
+              window.setTimeout(() => setMemoryJobID(current), 0);
+              return null;
+            });
+          }}
+        />
+      ) : null}
 
       <MemoryDetailDrawer
         open={Boolean(activeMemoryID)}

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,11 @@ import (
 
 const (
 	initialSyncPerPage = 100
+)
+
+var (
+	ErrGitHubReconnectRequired = errors.New("github reconnect required")
+	ErrGitHubRateLimited       = errors.New("github api rate limited")
 )
 
 type SyncStore interface {
@@ -127,7 +133,7 @@ func (c *HTTPGitHubSyncClient) ListPullRequests(ctx context.Context, accessToken
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("github pulls endpoint returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, classifySyncGitHubHTTPError(resp.StatusCode, resp.Header, body)
 	}
 
 	var prs []GitHubPullRequest
@@ -158,7 +164,7 @@ func (c *HTTPGitHubSyncClient) ListIssues(ctx context.Context, accessToken, owne
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("github issues endpoint returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, classifySyncGitHubHTTPError(resp.StatusCode, resp.Header, body)
 	}
 
 	var issues []GitHubIssue
@@ -176,3 +182,27 @@ func setGitHubHeaders(req *http.Request, accessToken string) {
 }
 
 var _ GitHubSyncClient = (*HTTPGitHubSyncClient)(nil)
+
+func classifySyncGitHubHTTPError(status int, headers http.Header, body []byte) error {
+	if status == http.StatusUnauthorized {
+		return ErrGitHubReconnectRequired
+	}
+	if status == http.StatusTooManyRequests || (status == http.StatusForbidden && isSyncRateLimited(headers, body)) {
+		return ErrGitHubRateLimited
+	}
+	return fmt.Errorf("github sync api error status=%d body=%s", status, strings.TrimSpace(string(body)))
+}
+
+func isSyncRateLimited(headers http.Header, body []byte) bool {
+	if headers.Get("X-RateLimit-Remaining") == "0" {
+		return true
+	}
+	var parsed struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &parsed); err == nil {
+		msg := strings.ToLower(strings.TrimSpace(parsed.Message))
+		return strings.Contains(msg, "rate limit")
+	}
+	return false
+}
