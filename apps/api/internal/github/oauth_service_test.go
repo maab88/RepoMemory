@@ -72,7 +72,9 @@ type fakeAccountStore struct {
 	upsertResult    GitHubConnectionSummary
 	membershipErr   error
 	upsertErr       error
+	auditErr        error
 	upsertCalls     int
+	auditCalls      int
 }
 
 func (f *fakeAccountStore) UserHasMembership(_ context.Context, _, _ uuid.UUID) (bool, error) {
@@ -88,6 +90,11 @@ func (f *fakeAccountStore) UpsertGitHubAccount(_ context.Context, _ UpsertGitHub
 		return GitHubConnectionSummary{}, f.upsertErr
 	}
 	return f.upsertResult, nil
+}
+
+func (f *fakeAccountStore) InsertGitHubConnectionAuditLog(_ context.Context, _ uuid.UUID, _ *uuid.UUID, _ GitHubConnectionSummary) error {
+	f.auditCalls++
+	return f.auditErr
 }
 
 func newConfiguredOAuthService(state StateService, githubClient GitHubClient, store OAuthStore) *OAuthService {
@@ -174,5 +181,8 @@ func TestHandleCallbackUpsertExistingAndNewCases(t *testing.T) {
 
 	if newStore.upsertCalls != 1 || existingStore.upsertCalls != 1 {
 		t.Fatalf("expected upsert in both scenarios, got new=%d existing=%d", newStore.upsertCalls, existingStore.upsertCalls)
+	}
+	if newStore.auditCalls != 1 || existingStore.auditCalls != 1 {
+		t.Fatalf("expected audit insert in both scenarios, got new=%d existing=%d", newStore.auditCalls, existingStore.auditCalls)
 	}
 }

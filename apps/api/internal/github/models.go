@@ -76,6 +76,7 @@ type TokenSealer interface {
 type OAuthStore interface {
 	UpsertGitHubAccount(ctx context.Context, input UpsertGitHubAccountInput) (GitHubConnectionSummary, error)
 	UserHasMembership(ctx context.Context, userID, organizationID uuid.UUID) (bool, error)
+	InsertGitHubConnectionAuditLog(ctx context.Context, actorUserID uuid.UUID, organizationID *uuid.UUID, account GitHubConnectionSummary) error
 }
 
 type RepositoryStore interface {

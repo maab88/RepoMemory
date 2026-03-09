@@ -19,9 +19,11 @@ import (
 	"github.com/maab88/repomemory/apps/api/internal/http/handlers"
 	"github.com/maab88/repomemory/apps/api/internal/http/router"
 	jobdefs "github.com/maab88/repomemory/apps/api/internal/jobs"
+	applogging "github.com/maab88/repomemory/apps/api/internal/logging"
 	"github.com/maab88/repomemory/apps/api/internal/org"
 	"github.com/maab88/repomemory/apps/api/internal/repositories"
 	"github.com/maab88/repomemory/apps/api/internal/server"
+	serviceaudit "github.com/maab88/repomemory/apps/api/internal/services/audit"
 	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
 	servicememory "github.com/maab88/repomemory/apps/api/internal/services/memory"
 	servicerepositories "github.com/maab88/repomemory/apps/api/internal/services/repositories"
@@ -34,6 +36,7 @@ func main() {
 	_ = godotenv.Load(".env", "apps/api/.env")
 
 	cfg := config.Load()
+	applogging.Configure(cfg.Env)
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	ctx := context.Background()
@@ -67,6 +70,8 @@ func main() {
 	repositoryRepository := repositories.NewRepositoryRepository(queries)
 	syncStateRepository := repositories.NewRepositorySyncStateRepository(queries)
 	digestRepository := repositories.NewDigestRepository(queries)
+	auditLogRepository := repositories.NewAuditLogRepository(queries)
+	auditService := serviceaudit.NewService(auditLogRepository)
 	memoryEntryRepository := repositories.NewMemoryEntryRepository(queries)
 	memoryEntrySourceRepository := repositories.NewMemoryEntrySourceRepository(queries)
 	memorySearchRepository := repositories.NewMemorySearchRepository(queries)
@@ -84,7 +89,7 @@ func main() {
 
 	enqueuer := jobdefs.NewEnqueuer(jobRepository, asynqClient)
 	jobService := servicejobs.NewService(jobRepository, queries, queries, enqueuer)
-	repositoryService := servicerepositories.NewService(repositoryRepository, syncStateRepository, digestRepository, queries, jobService)
+	repositoryService := servicerepositories.NewService(repositoryRepository, syncStateRepository, digestRepository, queries, jobService, auditService)
 	memoryService := servicememory.NewQueryService(repositoryRepository, memoryEntryRepository, memoryEntrySourceRepository, queries)
 	searchService := servicesearch.NewService(queries, repositoryRepository, memorySearchRepository)
 	v1Handler := handlers.NewV1Handler(orgService, githubService, jobService, repositoryService, memoryService, searchService)

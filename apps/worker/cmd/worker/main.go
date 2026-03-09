@@ -7,8 +7,8 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/maab88/repomemory/apps/worker/internal/config"
+	workerlogging "github.com/maab88/repomemory/apps/worker/internal/logging"
 	"github.com/maab88/repomemory/apps/worker/internal/worker"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -16,7 +16,7 @@ func main() {
 	_ = godotenv.Load(".env", "apps/worker/.env")
 
 	cfg := config.Load()
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	workerlogging.Configure(cfg.Env)
 
 	log.Info().Str("env", cfg.Env).Str("redis", cfg.RedisAddr).Msg("worker booting")
 

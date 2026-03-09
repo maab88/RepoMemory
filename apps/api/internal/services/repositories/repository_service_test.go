@@ -45,6 +45,7 @@ func TestListOrganizationRepositoriesForbidden(t *testing.T) {
 		&repostore.DigestRepository{},
 		&fakeMembershipChecker{allowed: false},
 		&fakeJobEnqueuer{},
+		nil,
 	)
 
 	_, err := svc.ListOrganizationRepositories(context.Background(), uuid.New(), uuid.New())

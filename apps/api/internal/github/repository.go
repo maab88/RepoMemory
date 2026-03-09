@@ -143,5 +143,24 @@ func (r *AccountRepository) InsertRepositoryImportAuditLog(ctx context.Context, 
 	return err
 }
 
+func (r *AccountRepository) InsertGitHubConnectionAuditLog(ctx context.Context, actorUserID uuid.UUID, organizationID *uuid.UUID, account GitHubConnectionSummary) error {
+	metadata, err := json.Marshal(map[string]any{
+		"githubLogin":  account.GitHubLogin,
+		"githubUserId": account.GitHubUserID,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = r.queries.InsertAuditLog(ctx, db.InsertAuditLogParams{
+		OrganizationID: organizationID,
+		ActorUserID:    &actorUserID,
+		Action:         "github.connection_succeeded",
+		EntityType:     "github_account",
+		EntityID:       &account.ID,
+		Metadata:       metadata,
+	})
+	return err
+}
+
 var _ OAuthStore = (*AccountRepository)(nil)
 var _ RepositoryStore = (*AccountRepository)(nil)

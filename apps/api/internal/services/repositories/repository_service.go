@@ -9,8 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/maab88/repomemory/apps/api/internal/db"
+	apimiddleware "github.com/maab88/repomemory/apps/api/internal/middleware"
 	repostore "github.com/maab88/repomemory/apps/api/internal/repositories"
 	servicejobs "github.com/maab88/repomemory/apps/api/internal/services/jobs"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -34,6 +36,7 @@ type Service struct {
 	digestRepository    *repostore.DigestRepository
 	membershipChecker   MembershipChecker
 	jobEnqueuer         JobEnqueuer
+	auditLogger         AuditLogger
 }
 
 func NewService(
@@ -42,6 +45,7 @@ func NewService(
 	digestRepository *repostore.DigestRepository,
 	membershipChecker MembershipChecker,
 	jobEnqueuer JobEnqueuer,
+	auditLogger AuditLogger,
 ) *Service {
 	return &Service{
 		repoRepository:      repoRepository,
@@ -49,7 +53,14 @@ func NewService(
 		digestRepository:    digestRepository,
 		membershipChecker:   membershipChecker,
 		jobEnqueuer:         jobEnqueuer,
+		auditLogger:         auditLogger,
 	}
+}
+
+type AuditLogger interface {
+	LogRepositorySyncTriggered(ctx context.Context, userID, organizationID, repositoryID, jobID uuid.UUID) error
+	LogMemoryGenerationTriggered(ctx context.Context, userID, organizationID, repositoryID, jobID uuid.UUID) error
+	LogDigestGenerationTriggered(ctx context.Context, userID, organizationID, repositoryID, jobID uuid.UUID) error
 }
 
 type Repository struct {
@@ -242,7 +253,24 @@ func (s *Service) TriggerInitialSync(ctx context.Context, userID, repositoryID u
 		return servicejobs.Job{}, err
 	}
 
-	return s.jobEnqueuer.EnqueueRepositoryInitialSync(ctx, repo.ID, repo.OrganizationID, userID)
+	job, err := s.jobEnqueuer.EnqueueRepositoryInitialSync(ctx, repo.ID, repo.OrganizationID, userID)
+	if err != nil {
+		return servicejobs.Job{}, err
+	}
+	if s.auditLogger != nil {
+		if err := s.auditLogger.LogRepositorySyncTriggered(ctx, userID, repo.OrganizationID, repo.ID, job.ID); err != nil {
+			return servicejobs.Job{}, err
+		}
+	}
+	log.Info().
+		Str("request_id", apimiddleware.RequestIDFromContext(ctx)).
+		Str("user_id", userID.String()).
+		Str("organization_id", repo.OrganizationID.String()).
+		Str("repository_id", repo.ID.String()).
+		Str("job_id", job.ID.String()).
+		Str("job_type", job.JobType).
+		Msg("repository sync queued")
+	return job, nil
 }
 
 func (s *Service) TriggerMemoryGeneration(ctx context.Context, userID, repositoryID uuid.UUID) (servicejobs.Job, error) {
@@ -251,7 +279,24 @@ func (s *Service) TriggerMemoryGeneration(ctx context.Context, userID, repositor
 		return servicejobs.Job{}, err
 	}
 
-	return s.jobEnqueuer.EnqueueRepositoryGenerateMemory(ctx, repo.ID, repo.OrganizationID, userID)
+	job, err := s.jobEnqueuer.EnqueueRepositoryGenerateMemory(ctx, repo.ID, repo.OrganizationID, userID)
+	if err != nil {
+		return servicejobs.Job{}, err
+	}
+	if s.auditLogger != nil {
+		if err := s.auditLogger.LogMemoryGenerationTriggered(ctx, userID, repo.OrganizationID, repo.ID, job.ID); err != nil {
+			return servicejobs.Job{}, err
+		}
+	}
+	log.Info().
+		Str("request_id", apimiddleware.RequestIDFromContext(ctx)).
+		Str("user_id", userID.String()).
+		Str("organization_id", repo.OrganizationID.String()).
+		Str("repository_id", repo.ID.String()).
+		Str("job_id", job.ID.String()).
+		Str("job_type", job.JobType).
+		Msg("repository memory generation queued")
+	return job, nil
 }
 
 func (s *Service) TriggerDigestGeneration(ctx context.Context, userID, repositoryID uuid.UUID) (servicejobs.Job, error) {
@@ -260,7 +305,24 @@ func (s *Service) TriggerDigestGeneration(ctx context.Context, userID, repositor
 		return servicejobs.Job{}, err
 	}
 
-	return s.jobEnqueuer.EnqueueRepositoryGenerateDigest(ctx, repo.ID, repo.OrganizationID, userID)
+	job, err := s.jobEnqueuer.EnqueueRepositoryGenerateDigest(ctx, repo.ID, repo.OrganizationID, userID)
+	if err != nil {
+		return servicejobs.Job{}, err
+	}
+	if s.auditLogger != nil {
+		if err := s.auditLogger.LogDigestGenerationTriggered(ctx, userID, repo.OrganizationID, repo.ID, job.ID); err != nil {
+			return servicejobs.Job{}, err
+		}
+	}
+	log.Info().
+		Str("request_id", apimiddleware.RequestIDFromContext(ctx)).
+		Str("user_id", userID.String()).
+		Str("organization_id", repo.OrganizationID.String()).
+		Str("repository_id", repo.ID.String()).
+		Str("job_id", job.ID.String()).
+		Str("job_type", job.JobType).
+		Msg("repository digest generation queued")
+	return job, nil
 }
 
 func (s *Service) ListDigests(ctx context.Context, userID, repositoryID uuid.UUID) ([]Digest, error) {

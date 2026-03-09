@@ -10,6 +10,7 @@ import (
 	"github.com/maab88/repomemory/apps/worker/internal/config"
 	"github.com/maab88/repomemory/apps/worker/internal/jobs"
 	"github.com/maab88/repomemory/apps/worker/internal/jobs/handlers"
+	jobmiddleware "github.com/maab88/repomemory/apps/worker/internal/jobs/middleware"
 	"github.com/maab88/repomemory/apps/worker/internal/services"
 	workersai "github.com/maab88/repomemory/apps/worker/internal/services/ai"
 	"github.com/maab88/repomemory/apps/worker/internal/services/hotspots"
@@ -69,11 +70,11 @@ func RunAsynqServer(ctx context.Context, cfg config.Config) error {
 	)
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(jobs.TaskRepoInitialSync, initialSyncHandler.Handle)
-	mux.HandleFunc(jobs.TaskRepoIncrementalSync, incrementalHandler.Handle)
-	mux.HandleFunc(jobs.TaskRepoGenerateMemory, generateMemoryHandler.Handle)
-	mux.HandleFunc(jobs.TaskRepoGenerateDigest, generateDigestHandler.Handle)
-	mux.HandleFunc(jobs.TaskRepoRecalculateHotspots, hotspotsHandler.Handle)
+	mux.HandleFunc(jobs.TaskRepoInitialSync, jobmiddleware.WithJobLogging(jobs.TaskRepoInitialSync, initialSyncHandler.Handle))
+	mux.HandleFunc(jobs.TaskRepoIncrementalSync, jobmiddleware.WithJobLogging(jobs.TaskRepoIncrementalSync, incrementalHandler.Handle))
+	mux.HandleFunc(jobs.TaskRepoGenerateMemory, jobmiddleware.WithJobLogging(jobs.TaskRepoGenerateMemory, generateMemoryHandler.Handle))
+	mux.HandleFunc(jobs.TaskRepoGenerateDigest, jobmiddleware.WithJobLogging(jobs.TaskRepoGenerateDigest, generateDigestHandler.Handle))
+	mux.HandleFunc(jobs.TaskRepoRecalculateHotspots, jobmiddleware.WithJobLogging(jobs.TaskRepoRecalculateHotspots, hotspotsHandler.Handle))
 
 	log.Info().Msg("worker asynq server starting")
 	if err := server.Start(mux); err != nil {

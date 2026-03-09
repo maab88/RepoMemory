@@ -106,13 +106,20 @@ func (s *OAuthService) HandleCallback(ctx context.Context, input OAuthCallbackIn
 		return GitHubConnectionSummary{}, err
 	}
 
-	return s.store.UpsertGitHubAccount(ctx, UpsertGitHubAccountInput{
+	account, err := s.store.UpsertGitHubAccount(ctx, UpsertGitHubAccountInput{
 		UserID:               input.UserID,
 		GitHubUserID:         viewer.ID,
 		GitHubLogin:          viewer.Login,
 		AccessTokenEncrypted: sealedToken,
 		TokenScope:           token.Scope,
 	})
+	if err != nil {
+		return GitHubConnectionSummary{}, err
+	}
+	if err := s.store.InsertGitHubConnectionAuditLog(ctx, input.UserID, payload.OrganizationID, account); err != nil {
+		return GitHubConnectionSummary{}, err
+	}
+	return account, nil
 }
 
 func (s *OAuthService) isConfigured() bool {

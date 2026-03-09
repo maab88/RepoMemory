@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/maab88/repomemory/apps/api/internal/http/handlers"
+	apimiddleware "github.com/maab88/repomemory/apps/api/internal/middleware"
 )
 
 type Dependencies struct {
@@ -14,6 +15,8 @@ type Dependencies struct {
 
 func New(deps Dependencies) http.Handler {
 	r := chi.NewRouter()
+	r.Use(apimiddleware.RequestID)
+	r.Use(apimiddleware.RequestLogger)
 	r.Get("/health", handlers.Health)
 
 	r.Route("/v1", func(r chi.Router) {

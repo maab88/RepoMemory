@@ -3,7 +3,11 @@ package response
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/google/uuid"
 )
+
+const requestIDHeader = "X-Request-Id"
 
 type Envelope struct {
 	Data  any       `json:"data,omitempty"`
@@ -23,7 +27,18 @@ func WriteData(w http.ResponseWriter, status int, data any) {
 }
 
 func WriteError(w http.ResponseWriter, status int, code, message string) {
+	requestID := w.Header().Get(requestIDHeader)
+	if requestID == "" {
+		requestID = uuid.NewString()
+		w.Header().Set(requestIDHeader, requestID)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(Envelope{Error: &APIError{Code: code, Message: message}})
+	_ = json.NewEncoder(w).Encode(Envelope{
+		Error: &APIError{
+			Code:      code,
+			Message:   message,
+			RequestID: requestID,
+		},
+	})
 }
