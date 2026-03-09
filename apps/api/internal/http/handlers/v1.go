@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -88,6 +89,7 @@ type meResponse struct {
 	Email       string    `json:"email,omitempty"`
 	DisplayName string    `json:"displayName"`
 	AvatarURL   string    `json:"avatarUrl,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 type organizationResponse struct {
@@ -126,6 +128,7 @@ func (h *V1Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 		Email:       currentUser.Email,
 		DisplayName: currentUser.DisplayName,
 		AvatarURL:   currentUser.AvatarURL,
+		CreatedAt:   currentUser.CreatedAt,
 	})
 }
 

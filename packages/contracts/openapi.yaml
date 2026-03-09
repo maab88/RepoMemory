@@ -34,7 +34,7 @@ paths:
       operationId: getMe
       summary: Get current authenticated user
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       responses:
         "200":
           description: Current user profile
@@ -51,7 +51,7 @@ paths:
       operationId: listOrganizations
       summary: List organizations accessible by current user
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       responses:
         "200":
           description: Organizations for the current user
@@ -69,7 +69,7 @@ paths:
       operationId: createOrganization
       summary: Create organization and owner membership for current user
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -98,7 +98,7 @@ paths:
       operationId: getOrganization
       summary: Get organization detail for current user
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: orgId
           in: path
@@ -131,7 +131,7 @@ paths:
       operationId: startGitHubConnect
       summary: Start GitHub OAuth connection flow
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       requestBody:
         required: false
         content:
@@ -162,7 +162,7 @@ paths:
       operationId: completeGitHubCallback
       summary: Complete GitHub OAuth callback and persist account
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: code
           in: query
@@ -200,7 +200,7 @@ paths:
       operationId: listGitHubRepositories
       summary: List GitHub repositories accessible by the connected account
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       responses:
         "200":
           description: GitHub repositories available for import
@@ -221,7 +221,7 @@ paths:
       operationId: importGitHubRepositories
       summary: Import selected GitHub repositories into an organization
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -250,7 +250,7 @@ paths:
       operationId: getJob
       summary: Get one background job by id
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: jobId
           in: path
@@ -283,7 +283,7 @@ paths:
       operationId: searchMemory
       summary: Search memory entries by title and summary
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: q
           in: query
@@ -344,7 +344,7 @@ paths:
       operationId: listOrganizationRepositories
       summary: List imported repositories for an organization
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: orgId
           in: path
@@ -375,7 +375,7 @@ paths:
       operationId: listRepositories
       summary: List imported repositories for current user
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       responses:
         "200":
           description: Imported repositories
@@ -394,7 +394,7 @@ paths:
       operationId: getRepositoryDetail
       summary: Get one imported repository detail
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: repoId
           in: path
@@ -427,7 +427,7 @@ paths:
       operationId: triggerRepositorySync
       summary: Enqueue repository initial sync
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: repoId
           in: path
@@ -460,7 +460,7 @@ paths:
       operationId: listRepositoryMemory
       summary: List memory entries for a repository
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: repoId
           in: path
@@ -493,7 +493,7 @@ paths:
       operationId: generateRepositoryMemory
       summary: Enqueue repository memory generation
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: repoId
           in: path
@@ -526,7 +526,7 @@ paths:
       operationId: getRepositoryMemoryDetail
       summary: Get one repository memory entry detail
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: repoId
           in: path
@@ -566,7 +566,7 @@ paths:
       operationId: listRepositoryDigests
       summary: List weekly digests for a repository
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: repoId
           in: path
@@ -599,7 +599,7 @@ paths:
       operationId: generateRepositoryDigest
       summary: Enqueue weekly digest generation for a repository
       security:
-        - MockUserHeader: []
+        - BearerAuth: []
       parameters:
         - name: repoId
           in: path
@@ -627,11 +627,11 @@ paths:
           $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
-    MockUserHeader:
-      type: apiKey
-      in: header
-      name: x-user-id
-      description: Required mock auth user identifier.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token signed by the web auth layer.
   responses:
     BadRequestError:
       description: Invalid request payload or parameters
@@ -710,7 +710,7 @@ components:
           example: unauthorized
         message:
           type: string
-          example: missing x-user-id header
+          example: missing or invalid authorization bearer token
         requestId:
           type: string
           example: req_12345
@@ -726,6 +726,7 @@ components:
       required:
         - id
         - displayName
+        - createdAt
       properties:
         id:
           type: string
@@ -738,6 +739,9 @@ components:
         avatarUrl:
           type: string
           format: uri
+        createdAt:
+          type: string
+          format: date-time
     Organization:
       type: object
       required:
@@ -1421,3 +1425,4 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/GenerateDigestData"
+

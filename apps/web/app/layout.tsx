@@ -1,4 +1,8 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
+import { getServerSession } from "next-auth/next";
+
+import { AuthNavControls } from "@/components/auth/auth-nav-controls";
+import { authOptions } from "@/lib/auth/auth-options";
 import "./globals.css";
 import Providers from "./providers";
 
@@ -7,11 +11,13 @@ export const metadata: Metadata = {
   description: "Engineering memory for teams",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions);
+
   return (
     <html lang="en">
       <body>
-        <Providers>
+        <Providers session={session}>
           <div className="min-h-screen bg-slate-50">
             <header className="border-b border-slate-200 bg-white">
               <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
@@ -29,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <a href="/settings/integrations/github" className="font-medium text-slate-600 hover:text-slate-900">
                     Integrations
                   </a>
+                  <AuthNavControls />
                 </nav>
               </div>
             </header>

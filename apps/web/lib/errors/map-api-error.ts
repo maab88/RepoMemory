@@ -55,6 +55,13 @@ export function mapApiError(error: unknown): MappedApiError {
           message: "You don't have permission for this action.",
           retryable: false,
         };
+      case "UNAUTHORIZED":
+        return {
+          ...base,
+          title: "Session expired",
+          message: "Your session is no longer valid. Please sign in again.",
+          retryable: false,
+        };
       case "NOT_FOUND":
         return {
           ...base,
@@ -100,6 +107,7 @@ function normalizeCode(code: string): string {
     case "GITHUB_NOT_CONNECTED":
       return "GITHUB_RECONNECT_REQUIRED";
     case "FORBIDDEN":
+    case "UNAUTHORIZED":
     case "NOT_FOUND":
     case "VALIDATION_ERROR":
     case "JOB_FAILED":
