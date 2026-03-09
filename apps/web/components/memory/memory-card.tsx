@@ -8,6 +8,7 @@ type MemoryCardProps = {
 function typeLabel(type: string): string {
   if (type === "pr_summary") return "PR Summary";
   if (type === "issue_summary") return "Issue Summary";
+  if (type === "hotspot") return "Hotspot";
   return type.replaceAll("_", " ");
 }
 

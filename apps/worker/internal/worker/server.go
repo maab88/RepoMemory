@@ -12,6 +12,7 @@ import (
 	"github.com/maab88/repomemory/apps/worker/internal/jobs/handlers"
 	"github.com/maab88/repomemory/apps/worker/internal/services"
 	workersai "github.com/maab88/repomemory/apps/worker/internal/services/ai"
+	"github.com/maab88/repomemory/apps/worker/internal/services/hotspots"
 	"github.com/rs/zerolog/log"
 )
 
@@ -49,11 +50,12 @@ func RunAsynqServer(ctx context.Context, cfg config.Config) error {
 	memoryGenerationService := services.NewMemoryGenerationService(store, memoryGenerator)
 	digestBuilder := services.NewAIDigestGenerator(aiProvider, services.NewDeterministicDigestBuilder())
 	digestGenerationService := services.NewDigestGenerationService(store, digestBuilder)
+	hotspotService := hotspots.NewService(store)
 	initialSyncHandler := handlers.NewRepoInitialSyncHandler(store, initialSyncService)
 	incrementalHandler := handlers.NewRepoIncrementalSyncHandler()
 	generateMemoryHandler := handlers.NewGenerateMemoryHandler(store, memoryGenerationService)
 	generateDigestHandler := handlers.NewGenerateDigestHandler(store, digestGenerationService)
-	hotspotsHandler := handlers.NewRecalculateHotspotsHandler()
+	hotspotsHandler := handlers.NewRecalculateHotspotsHandler(store, hotspotService)
 
 	server := asynq.NewServer(
 		redisOpt,
